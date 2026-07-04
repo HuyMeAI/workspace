@@ -9,6 +9,16 @@ import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import CreateTaskModal from './components/CreateTaskModal';
 
+export const metadata = {
+  title: 'Huy Workspace',
+  description: 'Hệ thống quản lý công việc',
+  // BỔ SUNG ĐOẠN ĐỐI TƯỢNG ICONS NÀY:
+  icons: {
+    icon: 'https://workspace.tranduchuy.com/logo.jpg',
+    apple: 'https://workspace.tranduchuy.com/logo.jpg', // Đây chính là apple-touch-icon
+  },
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
