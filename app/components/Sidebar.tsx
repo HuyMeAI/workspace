@@ -32,7 +32,7 @@ export default function Sidebar({ isDarkMode, toggleTheme, onOpenModal, onShowTo
           <Folder size={20} /> Thư mục
         </Link>
         <Link href="/schedule" className={getLinkStyle('/schedule')}>
-          <Calendar size={20} /> Lịch trình
+          <Calendar size={20} /> Lịch
         </Link>
         
         <button onClick={toggleTheme} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition font-medium mt-4 border border-zinc-200 dark:border-white/5">

@@ -1,107 +1,138 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import db from '../db/workspaceDB';
-import { X, AlignLeft, Tag, Flag, Trash2 } from 'lucide-react';
+import db from '@/app/db/workspaceDB';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { X, Save, Trash2, Tag, Flag, AlignLeft, CheckCircle2 } from 'lucide-react';
 
-export default function EditTaskModal({ isOpen, task, onClose, onUpdateSuccess, onDeleteRequest }: any) {
+export default function EditTaskModal({ isOpen, task, onClose }: any) {
+  // 1. Khởi tạo giá trị mặc định an toàn (tránh lỗi null)
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tag, setTag] = useState('');
-  const [priority, setPriority] = useState('');
+  const [priority, setPriority] = useState('medium');
+  const [status, setStatus] = useState('todo');
   const [startDatetime, setStartDatetime] = useState('');
   const [endDatetime, setEndDatetime] = useState('');
 
-  const folders = useLiveQuery(() => db.folders.where('is_readonly').equals(0).toArray()) || [];
+  const formatLocalDatetime = (dateStr: string) => {
+    if(!dateStr) return '';
+    const d = new Date(dateStr);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  };
 
-  // Tự động đổ dữ liệu cũ của Task vào Form mỗi khi mở Modal
+  // 2. Tự động nạp dữ liệu từ Task vào State ngay khi Task thay đổi
   useEffect(() => {
     if (task) {
-      setTitle(task.title);
+      setTitle(task.title || '');
       setDescription(task.description || '');
-      setTag(task.tag);
-      setPriority(task.priority);
-      setStartDatetime(task.start_datetime || '');
-      setEndDatetime(task.end_datetime || '');
+      setTag(task.tag || '');
+      setPriority(task.priority || 'medium');
+      setStatus(task.status || 'todo');
+      setStartDatetime(formatLocalDatetime(task.start_datetime));
+      setEndDatetime(formatLocalDatetime(task.end_datetime));
     }
   }, [task]);
 
+  // Lấy danh sách Thư mục động & Sắp xếp
+  const folders = useLiveQuery(() => db.folders.where('is_readonly').equals(0).toArray())?.sort((a, b) => (a.order || 0) - (b.order || 0)) || [];
+
+  // 3. Nếu Modal đang đóng HOẶC task bị null thì không render khung Modal
   if (!isOpen || !task) return null;
 
-  const handleUpdate = async () => {
-    if (!title.trim()) {
-      alert('Vui lòng nhập tiêu đề!');
-      return;
-    }
+  const handleSave = async () => {
+    if (!title.trim()) return alert('Vui lòng nhập tên công việc');
     await db.tasks.update(task.id, {
-      title: title.trim(),
-      description: description.trim(),
-      tag: tag,
-      priority: priority,
-      start_datetime: startDatetime ? startDatetime : null,
-      end_datetime: endDatetime ? endDatetime : null,
-      is_synced: 0
+      title, description, tag, priority, status,
+      start_datetime: startDatetime ? new Date(startDatetime).toISOString() : null,
+      end_datetime: endDatetime ? new Date(endDatetime).toISOString() : null,
+      updated_at: new Date().toISOString()
     });
-    onUpdateSuccess();
+    onClose();
+  };
+
+  const handleDelete = async () => {
+    if(confirm('Bạn chắc chắn muốn xóa công việc này?')) {
+      await db.tasks.delete(task.id);
+      onClose();
+    }
   };
 
   return (
-    <>
-      <div className="fixed inset-0 bg-zinc-900/40 dark:bg-black/70 backdrop-blur-sm z-50 transition-opacity duration-300 opacity-100 pointer-events-auto" onClick={onClose}></div>
-      <div className="fixed z-50 flex flex-col bg-white dark:bg-[#18181b] shadow-[0_20px_60px_rgba(0,0,0,0.1)] dark:shadow-2xl transition-all duration-300 ease-out bottom-0 left-0 right-0 w-full h-[85vh] rounded-t-3xl md:bottom-auto md:top-1/2 md:left-1/2 md:w-[550px] md:h-[80vh] md:max-h-[800px] md:rounded-2xl md:border border-zinc-200 dark:border-white/10 translate-y-0 md:-translate-x-1/2 md:-translate-y-1/2 md:scale-100 md:opacity-100">
-        <div className="flex-none flex justify-between items-center p-5 border-b border-zinc-100 dark:border-white/5 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#f7bd00] to-transparent opacity-80 dark:opacity-50"></div>
-          <h3 className="font-extrabold text-lg tracking-wide text-zinc-900 dark:text-white">Sửa Task</h3>
-          <button onClick={onClose} className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 rounded-full transition-colors"><X size={20} /></button>
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4">
+      <div className="bg-white dark:bg-[#18181b] w-full max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[90vh] sm:max-h-[85vh] overflow-hidden">
+        
+        {/* HEADER */}
+        <div className="p-5 sm:p-6 border-b border-zinc-100 dark:border-white/5 flex justify-between items-center bg-zinc-50/50 dark:bg-black/20">
+          <h2 className="text-xl font-extrabold text-zinc-900 dark:text-white">Sửa Task</h2>
+          <button onClick={onClose} className="p-2 bg-zinc-200 dark:bg-white/10 rounded-full hover:bg-red-500 hover:text-white transition"><X size={18}/></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5 custom-scrollbar">
-          <div className="flex-none">
-            <input type="text" className="w-full text-2xl font-bold bg-transparent border-none focus:ring-0 p-0 placeholder-zinc-300 dark:placeholder-zinc-600 text-zinc-900 dark:text-white focus:outline-none" value={title} onChange={(e) => setTitle(e.target.value)} />
-          </div>
-          <div className="flex items-start gap-4 flex-1 min-h-[100px]">
-            <AlignLeft size={22} className="text-zinc-400 mt-1 flex-shrink-0" />
-            <textarea className="w-full h-full bg-transparent border-none focus:ring-0 p-0 text-base text-zinc-600 dark:text-zinc-300 placeholder-zinc-400 dark:placeholder-zinc-600 resize-none focus:outline-none" value={description} onChange={(e) => setDescription(e.target.value)}></textarea>
+        {/* BODY */}
+        <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5">
+          <div>
+            <input type="text" value={title} onChange={e=>setTitle(e.target.value)} className="w-full text-2xl font-extrabold bg-transparent text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-0 px-0" placeholder="Tên công việc..."/>
           </div>
 
-          <div className="flex-none grid grid-cols-2 gap-4 sm:gap-5">
-            <div className="p-4 bg-white dark:bg-black/50 rounded-2xl border border-zinc-200 dark:border-white/5 shadow-sm dark:shadow-none">
-              <div className="flex items-center gap-2 text-xs font-bold text-zinc-500 mb-2 uppercase tracking-wider"><Tag size={14} /> Thư mục</div>
-              <select className="w-full bg-transparent text-sm font-semibold border-none focus:ring-0 p-0 text-zinc-800 dark:text-zinc-200 cursor-pointer" value={tag} onChange={(e) => setTag(e.target.value)}>
-              {folders.map(f => (
-               <option key={f.id} value={f.name}>{f.name}</option>
-               ))}
-             </select>
+          <div>
+            <div className="flex items-center gap-2 text-zinc-500 font-bold mb-2 text-sm"><AlignLeft size={16}/> Mô tả</div>
+            <textarea 
+              value={description} 
+              onChange={e=>setDescription(e.target.value)} 
+              className="w-full bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-[#f7bd00] outline-none min-h-[80px] sm:min-h-[100px] resize-y" 
+              placeholder="Thêm mô tả chi tiết..."
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-zinc-50 dark:bg-black/20 border border-zinc-100 dark:border-white/5 p-4 rounded-2xl">
+              <label className="flex items-center gap-2 text-xs font-bold text-zinc-500 mb-2"><Tag size={14}/> THƯ MỤC</label>
+              <select value={tag} onChange={e=>setTag(e.target.value)} className="w-full bg-transparent text-sm font-semibold border-none focus:ring-0 p-0 text-zinc-800 dark:text-zinc-200 outline-none cursor-pointer">
+                {folders.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
+              </select>
             </div>
-            <div className={`p-4 bg-white dark:bg-black/50 rounded-2xl border border-zinc-200 dark:border-white/5 shadow-sm dark:shadow-none ${priority === 'urgent' ? 'text-red-600 dark:text-red-500' : priority === 'high' ? 'text-[#d97706] dark:text-[#f7bd00]' : 'text-blue-500'}`}>
-              <div className="flex items-center gap-2 text-xs font-bold text-zinc-500 dark:text-zinc-500 mb-2 uppercase tracking-wider"><Flag size={14} className="text-zinc-400" /> Ưu tiên</div>
-              <select className="w-full bg-transparent text-sm font-semibold border-none focus:ring-0 focus:outline-none p-0 cursor-pointer" value={priority} onChange={(e) => setPriority(e.target.value)}>
-                <option value="urgent" className="text-red-600 font-bold">Urgent (Khẩn cấp)</option>
-                <option value="high" className="text-[#d97706] font-bold">High (Cao)</option>
-                <option value="medium" className="text-blue-500 font-bold">Medium (Vừa)</option>
+            <div className="bg-zinc-50 dark:bg-black/20 border border-zinc-100 dark:border-white/5 p-4 rounded-2xl">
+              <label className="flex items-center gap-2 text-xs font-bold text-zinc-500 mb-2"><Flag size={14}/> ƯU TIÊN</label>
+              <select value={priority} onChange={e=>setPriority(e.target.value)} className="w-full bg-transparent text-sm font-semibold border-none focus:ring-0 p-0 text-zinc-800 dark:text-zinc-200 outline-none cursor-pointer">
+                <option value="urgent" className="text-red-500">Khẩn cấp</option>
+                <option value="high" className="text-orange-500">Cao</option>
+                <option value="medium" className="text-blue-500">Vừa</option>
+                <option value="low" className="text-zinc-500">Thấp</option>
               </select>
             </div>
           </div>
 
-          <div className="flex-none p-4 bg-white dark:bg-black/50 rounded-2xl border border-zinc-200 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-bold text-zinc-500">Bắt đầu:</span>
-              <input type="datetime-local" className="bg-transparent text-sm font-medium border-none focus:outline-none focus:ring-0 dark:text-white cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:invert dark:[&::-webkit-calendar-picker-indicator]:opacity-70" value={startDatetime} onChange={(e) => setStartDatetime(e.target.value)} />
+          <div className="bg-zinc-50 dark:bg-black/20 border border-zinc-100 dark:border-white/5 rounded-2xl p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-bold text-zinc-600 dark:text-zinc-400">Bắt đầu:</label>
+              <input type="datetime-local" value={startDatetime} onChange={e=>setStartDatetime(e.target.value)} className="bg-transparent text-sm font-bold text-zinc-900 dark:text-white outline-none"/>
             </div>
-            <div className="h-px bg-zinc-100 dark:bg-white/5"></div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-bold text-red-500">Deadline:</span>
-              <input type="datetime-local" className="bg-transparent text-sm font-medium border-none focus:outline-none focus:ring-0 dark:text-white cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:invert dark:[&::-webkit-calendar-picker-indicator]:opacity-70" value={endDatetime} onChange={(e) => setEndDatetime(e.target.value)} />
+            <div className="flex items-center justify-between border-t border-zinc-200 dark:border-white/5 pt-4">
+              <label className="text-sm font-bold text-red-500">Deadline:</label>
+              <input type="datetime-local" value={endDatetime} onChange={e=>setEndDatetime(e.target.value)} className="bg-transparent text-sm font-bold text-zinc-900 dark:text-white outline-none"/>
             </div>
+          </div>
+
+          <div className="bg-zinc-50 dark:bg-black/20 border border-zinc-100 dark:border-white/5 p-4 rounded-2xl">
+              <label className="flex items-center gap-2 text-xs font-bold text-zinc-500 mb-2"><CheckCircle2 size={14}/> TRẠNG THÁI</label>
+              <select value={status} onChange={e=>setStatus(e.target.value)} className="w-full bg-transparent text-sm font-semibold border-none focus:ring-0 p-0 text-zinc-800 dark:text-zinc-200 outline-none cursor-pointer">
+                <option value="todo">Cần làm</option>
+                <option value="in_progress">Đang làm</option>
+                <option value="done">Hoàn thành</option>
+              </select>
           </div>
         </div>
 
-        <div className="flex-none flex gap-3 p-5 border-t border-zinc-100 dark:border-white/5 rounded-b-2xl bg-zinc-50 dark:bg-transparent">
-          <button onClick={() => onDeleteRequest(task.id)} className="w-14 flex items-center justify-center bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"><Trash2 size={20} /></button>
-          <button onClick={handleUpdate} className="flex-1 bg-gradient-to-r from-[#f7bd00] to-[#f59e0b] text-black py-3.5 rounded-xl font-extrabold text-base shadow-[0_4px_15px_rgba(247,189,0,0.3)] hover:shadow-[0_6px_20px_rgba(247,189,0,0.4)] transition-all active:scale-[0.98]">Lưu Thay Đổi</button>
+        {/* FOOTER CHỨA NÚT */}
+        <div className="p-4 sm:p-6 border-t border-zinc-100 dark:border-white/5 bg-zinc-50 dark:bg-black/20 mt-auto flex gap-3">
+          <button onClick={handleDelete} className="p-3.5 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-xl font-bold hover:bg-red-500 hover:text-white transition"><Trash2 size={20}/></button>
+          <button onClick={handleSave} className="flex-1 bg-[#f7bd00] text-black font-extrabold rounded-xl shadow-md hover:bg-[#e5ae00] transition flex items-center justify-center gap-2">
+            <Save size={20}/> LƯU THAY ĐỔI
+          </button>
         </div>
+
       </div>
-    </>
+    </div>
   );
 }
