@@ -1,4 +1,5 @@
 import { Home, Folder, Plus, Calendar, Sun, Moon } from 'lucide-react';
+import Link from 'next/link'; // THÊM DÒNG NÀY
 
 export default function Sidebar({ isDarkMode, toggleTheme, onOpenModal, onShowToast }: any) {
   return (
@@ -8,15 +9,16 @@ export default function Sidebar({ isDarkMode, toggleTheme, onOpenModal, onShowTo
         Workspace<span className="text-[#d97706] dark:text-[#f7bd00]">.</span>
       </div>
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto relative z-10">
-        <a href="/" className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold transition">
+        {/* SỬA <a> THÀNH <Link> */}
+        <Link href="/" className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold transition">
           <Home size={20} /> Trang chủ
-        </a>
-        <a href="/folders" className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold transition">
-          <Folder size={20} /> Folder
-        </a>
-        <a href="/schedule" className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold transition">
+        </Link>
+        <Link href="/folders" className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold transition">
+          <Folder size={20} /> Thư mục
+        </Link>
+        <Link href="/schedule" className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold transition">
           <Calendar size={20} /> Lịch trình
-        </a>
+        </Link>
         <button onClick={toggleTheme} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition font-medium mt-4 border border-zinc-200 dark:border-white/5">
           {isDarkMode ? <Sun size={20} className="text-[#f7bd00]" /> : <Moon size={20} className="text-zinc-600" />}
           {isDarkMode ? 'Giao diện Sáng' : 'Giao diện Tối'}
