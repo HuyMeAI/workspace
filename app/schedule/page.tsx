@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import db from '@/app/db/workspaceDB';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, Clock } from 'lucide-react';
 import EditTaskModal from '../components/EditTaskModal';
 
 export default function SchedulePage() {
@@ -12,16 +12,18 @@ export default function SchedulePage() {
   const month = currentDate.getMonth();
 
   const folders = useLiveQuery(() => db.folders.toArray()) || [];
-  // HIỂN THỊ CẢ NGÀY LỄ TRONG LỊCH
   const filterableFolders = folders.sort((a,b)=>(a.order||0)-(b.order||0));
 
-  // THUẬT TOÁN MỚI: Mảng chứa các thư mục BỊ BỎ CHỌN (Mặc định mảng rỗng = Tất cả đều hiển thị)
   const [deselectedFilters, setDeselectedFilters] = useState<string[]>([]);
+  
+  // State cho Modal Sửa Task
   const [editingTask, setEditingTask] = useState<any>(null);
+  
+  // State MỚI: Mở chế độ xem Chi tiết Ngày (Daily View)
+  const [selectedDailyDate, setSelectedDailyDate] = useState<Date | null>(null);
 
   const tasks = useLiveQuery(() => db.tasks.toArray()) || [];
   
-  // Tách mảng Thứ cho Mobile và Desktop
   const weekdaysMobile = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
   const weekdaysDesktop = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
 
@@ -34,29 +36,25 @@ export default function SchedulePage() {
   const getLunarDate = (date: Date) => {
     try {
       const lunarStr = new Intl.DateTimeFormat('vi-VN-u-ca-chinese', { day: 'numeric', month: 'numeric' }).format(date);
-      const [lDay, lMonth] = lunarStr.split('/');
+      const [lDay] = lunarStr.split('/');
       return lDay === '1' ? lunarStr : lDay;
     } catch (e) { return ''; }
   };
 
   const handleToggleFilter = (folderName: string) => {
-    // Nếu có trong mảng bị bỏ chọn -> Xóa ra (Tức là chọn lại)
-    // Nếu chưa có -> Thêm vào (Tức là bỏ chọn)
     setDeselectedFilters(prev => prev.includes(folderName) ? prev.filter(f => f !== folderName) : [...prev, folderName]);
   };
 
-  const getTasksForDay = (day: number) => {
-    const currentCellDate = new Date(year, month, day).setHours(0, 0, 0, 0);
+  // Hàm lấy Task cho 1 ngày cụ thể
+  const getTasksForDay = (targetYear: number, targetMonth: number, day: number) => {
+    const currentCellDate = new Date(targetYear, targetMonth, day).setHours(0, 0, 0, 0);
     return tasks.filter((task: any) => {
-      // 1. Áp dụng Lọc: Nếu Tag của Task nằm trong mảng "Bị bỏ chọn" thì ẩn
       if (deselectedFilters.includes(task.tag)) return false;
-      
-      // 2. Tính khoảng thời gian
       if (!task.start_datetime) return false;
       const start = new Date(task.start_datetime).setHours(0, 0, 0, 0);
       const end = task.end_datetime ? new Date(task.end_datetime).setHours(0, 0, 0, 0) : start;
       return currentCellDate >= start && currentCellDate <= end;
-    });
+    }).sort((a, b) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime()); // Sắp xếp theo giờ
   };
 
   const getTagColor = (tag: string) => {
@@ -67,17 +65,33 @@ export default function SchedulePage() {
     return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'; 
   };
 
+  // UI Component cho 1 Dòng Task (Dùng chung cho cả Grid và Daily View)
+  const TaskRow = ({ task }: { task: any }) => (
+    <div 
+      onClick={(e) => {
+          e.stopPropagation(); 
+          if(task.tag === 'Ngày lễ') return alert('Bạn không thể chỉnh sửa Ngày Lễ!');
+          setEditingTask(task);
+      }} 
+      className={`cursor-pointer px-1.5 md:px-2.5 py-1 md:py-1.5 rounded-[4px] md:rounded-md border text-[10px] md:text-[13px] font-bold truncate transition-all w-full ${getTagColor(task.tag)} ${task.status === 'done' ? 'opacity-40 line-through' : 'hover:scale-[1.02] shadow-sm'}`}
+      title={`${task.title} (${task.tag})`}
+    >
+      {task.title}
+    </div>
+  );
+
   return (
     <div className="p-3 md:p-6 lg:p-10 max-w-7xl mx-auto h-full flex flex-col relative overflow-hidden">
       
+      {/* HEADER */}
       <div className="flex justify-between items-center mb-4 md:mb-6">
         <div className="flex items-center gap-3">
           <div className="hidden md:flex w-10 h-10 bg-[#f7bd00]/10 rounded-xl items-center justify-center text-[#d97706] dark:text-[#f7bd00]">
             <CalendarIcon size={20} />
           </div>
           <div>
-            {/* Đã sửa Text: Tháng 7/2026 */}
-            <h1 className="text-xl md:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
+            {/* Chữ thường, font to hơn */}
+            <h1 className="text-2xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight capitalize">
               Tháng {month + 1}/{year}
             </h1>
           </div>
@@ -89,58 +103,59 @@ export default function SchedulePage() {
         </div>
       </div>
 
+      {/* THANH LỌC THƯ MỤC */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-3 mb-2 -mx-3 px-3 md:mx-0 md:px-0">
         {filterableFolders.map(f => (
           <label key={f.id} className="flex-shrink-0 flex items-center gap-2 cursor-pointer bg-white dark:bg-white/5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-white/10 hover:bg-zinc-50 dark:hover:bg-white/10 transition">
-            {/* Checked = KHÔNG nằm trong mảng bị bỏ chọn */}
-            <input type="checkbox" checked={!deselectedFilters.includes(f.name)} onChange={() => handleToggleFilter(f.name)} className="w-3.5 h-3.5 rounded text-[#f7bd00] focus:ring-[#f7bd00] bg-zinc-100 border-zinc-300 dark:bg-black/50 dark:border-white/20"/>
-            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 whitespace-nowrap">{f.name}</span>
+            <input type="checkbox" checked={!deselectedFilters.includes(f.name)} onChange={() => handleToggleFilter(f.name)} className="w-4 h-4 rounded text-[#f7bd00] focus:ring-[#f7bd00] bg-zinc-100 border-zinc-300 dark:bg-black/50 dark:border-white/20"/>
+            <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300 whitespace-nowrap">{f.name}</span>
           </label>
         ))}
       </div>
 
+      {/* GRID LỊCH */}
       <div className="flex-1 w-full bg-white dark:bg-[#121214] rounded-2xl md:rounded-3xl border border-zinc-200 dark:border-white/5 shadow-xl flex flex-col overflow-hidden">
         
-        {/* RESPONSIVE THỨ TRONG TUẦN */}
         <div className="grid grid-cols-7 border-b border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-black/20 text-center py-2 md:py-3 w-full">
-          {weekdaysMobile.map((d, i) => <span key={'m'+i} className={`md:hidden text-[10px] font-extrabold tracking-wider ${i>=5?'text-amber-600 dark:text-[#f7bd00]':'text-zinc-400'}`}>{d}</span>)}
-          {weekdaysDesktop.map((d, i) => <span key={'d'+i} className={`hidden md:block text-xs md:text-sm font-extrabold tracking-wider ${i>=5?'text-amber-600 dark:text-[#f7bd00]':'text-zinc-400'}`}>{d}</span>)}
+          {weekdaysMobile.map((d, i) => <span key={'m'+i} className={`md:hidden text-[11px] font-extrabold tracking-wider ${i>=5?'text-amber-600 dark:text-[#f7bd00]':'text-zinc-400'}`}>{d}</span>)}
+          {weekdaysDesktop.map((d, i) => <span key={'d'+i} className={`hidden md:block text-sm font-extrabold tracking-wider ${i>=5?'text-amber-600 dark:text-[#f7bd00]':'text-zinc-400'}`}>{d}</span>)}
         </div>
 
         <div className="grid grid-cols-7 w-full flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar content-start">
           {[...Array(firstDayIndex()).fill(null), ...Array.from({length: daysInMonth}, (_,i)=>i+1)].map((day, idx) => {
             const isToday = day === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
             
+            // Xử lý hiển thị giới hạn 2 Task
+            const dayTasks = day ? getTasksForDay(year, month, day) : [];
+            const displayTasks = dayTasks.slice(0, 2);
+            const overflowCount = dayTasks.length - 2;
+
             return (
-              <div key={idx} className={`min-h-[90px] md:min-h-[140px] p-1 md:p-2 border-b border-r border-zinc-100 dark:border-white/5 flex flex-col gap-0.5 md:gap-1.5 ${day?'':'bg-zinc-50/50 dark:bg-white/[0.02]'}`}>
-                
+              <div 
+                key={idx} 
+                onClick={() => day && setSelectedDailyDate(new Date(year, month, day))}
+                className={`min-h-[100px] md:min-h-[140px] p-1 md:p-2 border-b border-r border-zinc-100 dark:border-white/5 flex flex-col gap-0.5 md:gap-1.5 cursor-pointer transition-colors ${day?'hover:bg-zinc-50/50 dark:hover:bg-white/5':'bg-zinc-50/50 dark:bg-white/[0.02]'}`}
+              >
                 {day && (
                   <div className="flex flex-col items-center md:items-end md:flex-row md:justify-end gap-0.5 md:gap-1.5 mb-1 md:mb-2 opacity-90 hover:opacity-100">
-                    <span className={`text-[10px] md:text-sm font-bold w-5 h-5 md:w-7 md:h-7 flex items-center justify-center rounded-full ${isToday?'bg-[#f7bd00] text-black shadow-md':'text-zinc-600 dark:text-zinc-300'}`}>
+                    <span className={`text-xs md:text-sm font-bold w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded-full ${isToday?'bg-[#f7bd00] text-black shadow-md':'text-zinc-600 dark:text-zinc-300'}`}>
                       {day}
                     </span>
-                    <span className="text-[8px] md:text-xs text-zinc-400 dark:text-zinc-500 font-medium">
+                    <span className="text-[9px] md:text-[11px] text-zinc-400 dark:text-zinc-500 font-medium">
                       {getLunarDate(new Date(year, month, day))}
                     </span>
                   </div>
                 )}
                 
-                <div className="flex-1 flex flex-col gap-1 overflow-hidden w-full">
-                  {day && getTasksForDay(day).map((task: any) => (
-                    <div 
-                      key={task.id} 
-                      onClick={(e) => {
-                          e.stopPropagation(); 
-                          if(task.tag === 'Ngày lễ') return alert('Bạn không thể chỉnh sửa Ngày Lễ!');
-                          setEditingTask(task);
-                      }} 
-                      // Phóng to Font Desktop, Bỏ Tag [Tên_thư_mục]
-                      className={`cursor-pointer px-1 md:px-2.5 py-0.5 md:py-1.5 rounded-[4px] md:rounded-md border text-[9px] md:text-xs font-bold truncate transition-all w-full ${getTagColor(task.tag)} ${task.status === 'done' ? 'opacity-40 line-through' : 'hover:scale-[1.02] shadow-sm'}`}
-                      title={`${task.title} (${task.tag})`}
-                    >
-                      {task.title}
+                <div className="flex-1 flex flex-col gap-1 w-full">
+                  {displayTasks.map((task: any) => <TaskRow key={task.id} task={task} />)}
+                  
+                  {/* Nút +n xem thêm */}
+                  {overflowCount > 0 && (
+                    <div className="text-[10px] md:text-xs font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-white mt-1 px-1">
+                      + {overflowCount} công việc
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )
@@ -148,6 +163,43 @@ export default function SchedulePage() {
         </div>
       </div>
 
+      {/* POPUP CHI TIẾT NGÀY (DAILY VIEW) */}
+      {selectedDailyDate && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4" onClick={() => setSelectedDailyDate(null)}>
+          <div className="bg-white dark:bg-[#18181b] w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden" onClick={e=>e.stopPropagation()}>
+            <div className="p-5 border-b border-zinc-100 dark:border-white/5 flex justify-between items-center bg-zinc-50/50 dark:bg-black/20">
+              <div>
+                <h2 className="text-xl font-extrabold text-zinc-900 dark:text-white capitalize">
+                  {weekdaysDesktop[selectedDailyDate.getDay() === 0 ? 6 : selectedDailyDate.getDay() - 1]}
+                </h2>
+                <p className="text-sm text-zinc-500 font-medium mt-0.5">Ngày {selectedDailyDate.getDate()} tháng {selectedDailyDate.getMonth() + 1}, {selectedDailyDate.getFullYear()}</p>
+              </div>
+              <button onClick={() => setSelectedDailyDate(null)} className="p-2 bg-zinc-200 dark:bg-white/10 rounded-full hover:bg-red-500 hover:text-white transition"><X size={18}/></button>
+            </div>
+            
+            <div className="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-3">
+              {getTasksForDay(selectedDailyDate.getFullYear(), selectedDailyDate.getMonth(), selectedDailyDate.getDate()).map((task: any) => (
+                <div key={task.id} className="flex gap-3 items-start group">
+                  <div className="flex flex-col items-end w-12 pt-1 flex-shrink-0">
+                    <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400">
+                      {new Date(task.start_datetime).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}
+                    </span>
+                  </div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600 mt-2.5 flex-shrink-0"></div>
+                  <div className="flex-1">
+                    <TaskRow task={task} />
+                  </div>
+                </div>
+              ))}
+              {getTasksForDay(selectedDailyDate.getFullYear(), selectedDailyDate.getMonth(), selectedDailyDate.getDate()).length === 0 && (
+                <p className="text-center text-sm text-zinc-500 font-medium py-10">Không có công việc nào trong ngày này.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP SỬA TASK */}
       {editingTask && (
         <EditTaskModal 
           isOpen={true} 
