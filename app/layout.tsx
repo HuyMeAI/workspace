@@ -9,15 +9,7 @@ import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import CreateTaskModal from './components/CreateTaskModal';
 
-export const metadata = {
-  title: 'Huy Workspace',
-  description: 'Hệ thống quản lý công việc',
-  // BỔ SUNG ĐOẠN ĐỐI TƯỢNG ICONS NÀY:
-  icons: {
-    icon: 'https://workspace.tranduchuy.com/logo.jpg',
-    apple: 'https://workspace.tranduchuy.com/logo.jpg', // Đây chính là apple-touch-icon
-  },
-};
+// CHÚ Ý: ĐÃ XÓA KHỐI METADATA Ở ĐÂY ĐỂ TRÁNH LỖI CRASH APP
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -55,6 +47,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="vi" suppressHydrationWarning>
+      <head>
+        {/* TÊN TIÊU ĐỀ TRÊN TAB TRÌNH DUYỆT */}
+        <title>Huy Workspace</title>
+        <meta name="description" content="Hệ thống quản lý công việc" />
+
+        {/* THAY FAVICON CHO MÁY TÍNH & TRÌNH DUYỆT CHROME/SAFARI */}
+        <link rel="icon" type="image/jpeg" href="https://workspace.tranduchuy.com/logo.jpg" />
+        <link rel="shortcut icon" href="https://workspace.tranduchuy.com/logo.jpg" />
+
+        {/* THAY AVATAR KHI LƯU RA MÀN HÌNH CHÍNH TRÊN IPHONE/IPAD */}
+        <link rel="apple-touch-icon" href="https://workspace.tranduchuy.com/logo.jpg" />
+      </head>
+
       <body className="bg-zinc-50 text-zinc-900 dark:bg-[#09090b] dark:text-zinc-100 antialiased h-screen overflow-hidden flex transition-colors duration-500" suppressHydrationWarning>
         
         {/* Render Toast Global */}
