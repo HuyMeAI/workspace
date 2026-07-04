@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import db from '@/app/db/workspaceDB';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X } from 'lucide-react';
 import EditTaskModal from '../components/EditTaskModal';
 
 export default function SchedulePage() {
@@ -15,12 +15,11 @@ export default function SchedulePage() {
   const filterableFolders = folders.sort((a,b)=>(a.order||0)-(b.order||0));
 
   const [deselectedFilters, setDeselectedFilters] = useState<string[]>([]);
-  
-  // State cho Modal Sửa Task
   const [editingTask, setEditingTask] = useState<any>(null);
-  
-  // State MỚI: Mở chế độ xem Chi tiết Ngày (Daily View)
   const [selectedDailyDate, setSelectedDailyDate] = useState<Date | null>(null);
+  
+  // STATE MỚI: Quản lý Toast thông báo
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const tasks = useLiveQuery(() => db.tasks.toArray()) || [];
   
@@ -32,6 +31,14 @@ export default function SchedulePage() {
 
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+
+  // Tự động tắt Toast sau 3 giây
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   const getLunarDate = (date: Date) => {
     try {
@@ -45,7 +52,6 @@ export default function SchedulePage() {
     setDeselectedFilters(prev => prev.includes(folderName) ? prev.filter(f => f !== folderName) : [...prev, folderName]);
   };
 
-  // Hàm lấy Task cho 1 ngày cụ thể
   const getTasksForDay = (targetYear: number, targetMonth: number, day: number) => {
     const currentCellDate = new Date(targetYear, targetMonth, day).setHours(0, 0, 0, 0);
     return tasks.filter((task: any) => {
@@ -54,7 +60,7 @@ export default function SchedulePage() {
       const start = new Date(task.start_datetime).setHours(0, 0, 0, 0);
       const end = task.end_datetime ? new Date(task.end_datetime).setHours(0, 0, 0, 0) : start;
       return currentCellDate >= start && currentCellDate <= end;
-    }).sort((a, b) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime()); // Sắp xếp theo giờ
+    }).sort((a, b) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime());
   };
 
   const getTagColor = (tag: string) => {
@@ -65,15 +71,17 @@ export default function SchedulePage() {
     return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'; 
   };
 
-  // UI Component cho 1 Dòng Task (Dùng chung cho cả Grid và Daily View)
   const TaskRow = ({ task }: { task: any }) => (
     <div 
       onClick={(e) => {
           e.stopPropagation(); 
-          if(task.tag === 'Ngày lễ') return alert('Bạn không thể chỉnh sửa Ngày Lễ!');
+          if(task.tag === 'Ngày lễ') {
+              setToastMessage('Bạn không thể chỉnh sửa Ngày Lễ!');
+              return;
+          }
           setEditingTask(task);
       }} 
-      className={`cursor-pointer px-1.5 md:px-2.5 py-1 md:py-1.5 rounded-[4px] md:rounded-md border text-[10px] md:text-[13px] font-bold truncate transition-all w-full ${getTagColor(task.tag)} ${task.status === 'done' ? 'opacity-40 line-through' : 'hover:scale-[1.02] shadow-sm'}`}
+      className={`cursor-pointer px-1.5 md:px-2.5 py-1 md:py-1.5 rounded-[4px] md:rounded-md border text-[10px] md:text-[12px] font-bold truncate transition-all w-full ${getTagColor(task.tag)} ${task.status === 'done' ? 'opacity-40 line-through' : 'hover:scale-[1.02] shadow-sm'}`}
       title={`${task.title} (${task.tag})`}
     >
       {task.title}
@@ -83,6 +91,15 @@ export default function SchedulePage() {
   return (
     <div className="p-3 md:p-6 lg:p-10 max-w-7xl mx-auto h-full flex flex-col relative overflow-hidden">
       
+      {/* TOAST THÔNG BÁO XỊN SÒ */}
+      {toastMessage && (
+        <div className="fixed bottom-24 md:bottom-10 left-1/2 transform -translate-x-1/2 z-[100] flex items-center gap-3 bg-zinc-800 dark:bg-white text-white dark:text-zinc-900 px-5 py-3 rounded-2xl shadow-2xl font-bold text-sm transition-all">
+            <span className="w-2 h-2 rounded-full bg-red-500"></span>
+            {toastMessage}
+            <button onClick={() => setToastMessage(null)} className="ml-2 opacity-70 hover:opacity-100"><X size={16}/></button>
+        </div>
+      )}
+
       {/* HEADER */}
       <div className="flex justify-between items-center mb-4 md:mb-6">
         <div className="flex items-center gap-3">
@@ -90,7 +107,6 @@ export default function SchedulePage() {
             <CalendarIcon size={20} />
           </div>
           <div>
-            {/* Chữ thường, font to hơn */}
             <h1 className="text-2xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight capitalize">
               Tháng {month + 1}/{year}
             </h1>
@@ -125,7 +141,6 @@ export default function SchedulePage() {
           {[...Array(firstDayIndex()).fill(null), ...Array.from({length: daysInMonth}, (_,i)=>i+1)].map((day, idx) => {
             const isToday = day === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
             
-            // Xử lý hiển thị giới hạn 2 Task
             const dayTasks = day ? getTasksForDay(year, month, day) : [];
             const displayTasks = dayTasks.slice(0, 2);
             const overflowCount = dayTasks.length - 2;
@@ -134,7 +149,8 @@ export default function SchedulePage() {
               <div 
                 key={idx} 
                 onClick={() => day && setSelectedDailyDate(new Date(year, month, day))}
-                className={`min-h-[100px] md:min-h-[140px] p-1 md:p-2 border-b border-r border-zinc-100 dark:border-white/5 flex flex-col gap-0.5 md:gap-1.5 cursor-pointer transition-colors ${day?'hover:bg-zinc-50/50 dark:hover:bg-white/5':'bg-zinc-50/50 dark:bg-white/[0.02]'}`}
+                // ĐÃ FIX LỖI ĐÈ TASK: Bổ sung 'overflow-hidden' vào ô cell để khóa cứng phần tử con
+                className={`min-h-[100px] md:min-h-[140px] p-1 md:p-2 border-b border-r border-zinc-100 dark:border-white/5 flex flex-col gap-0.5 md:gap-1.5 cursor-pointer transition-colors overflow-hidden ${day?'hover:bg-zinc-50/50 dark:hover:bg-white/5':'bg-zinc-50/50 dark:bg-white/[0.02]'}`}
               >
                 {day && (
                   <div className="flex flex-col items-center md:items-end md:flex-row md:justify-end gap-0.5 md:gap-1.5 mb-1 md:mb-2 opacity-90 hover:opacity-100">
@@ -147,12 +163,11 @@ export default function SchedulePage() {
                   </div>
                 )}
                 
-                <div className="flex-1 flex flex-col gap-1 w-full">
+                <div className="flex-1 flex flex-col gap-1 w-full overflow-hidden">
                   {displayTasks.map((task: any) => <TaskRow key={task.id} task={task} />)}
                   
-                  {/* Nút +n xem thêm */}
                   {overflowCount > 0 && (
-                    <div className="text-[10px] md:text-xs font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-white mt-1 px-1">
+                    <div className="mt-auto text-[10px] md:text-xs font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-white pt-1 px-1">
                       + {overflowCount} công việc
                     </div>
                   )}
@@ -166,7 +181,8 @@ export default function SchedulePage() {
       {/* POPUP CHI TIẾT NGÀY (DAILY VIEW) */}
       {selectedDailyDate && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4" onClick={() => setSelectedDailyDate(null)}>
-          <div className="bg-white dark:bg-[#18181b] w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden" onClick={e=>e.stopPropagation()}>
+          <div className="bg-white dark:bg-[#18181b] w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden relative" onClick={e=>e.stopPropagation()}>
+            
             <div className="p-5 border-b border-zinc-100 dark:border-white/5 flex justify-between items-center bg-zinc-50/50 dark:bg-black/20">
               <div>
                 <h2 className="text-xl font-extrabold text-zinc-900 dark:text-white capitalize">
@@ -177,7 +193,7 @@ export default function SchedulePage() {
               <button onClick={() => setSelectedDailyDate(null)} className="p-2 bg-zinc-200 dark:bg-white/10 rounded-full hover:bg-red-500 hover:text-white transition"><X size={18}/></button>
             </div>
             
-            <div className="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-3">
+            <div className="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-3 pb-24 md:pb-5">
               {getTasksForDay(selectedDailyDate.getFullYear(), selectedDailyDate.getMonth(), selectedDailyDate.getDate()).map((task: any) => (
                 <div key={task.id} className="flex gap-3 items-start group">
                   <div className="flex flex-col items-end w-12 pt-1 flex-shrink-0">
@@ -195,6 +211,7 @@ export default function SchedulePage() {
                 <p className="text-center text-sm text-zinc-500 font-medium py-10">Không có công việc nào trong ngày này.</p>
               )}
             </div>
+
           </div>
         </div>
       )}

@@ -29,8 +29,10 @@ export default function FoldersPage() {
   const visibleFolders = sortedFolders.filter(f => !f.is_readonly); 
   
   const tasks = useLiveQuery(() => db.tasks.toArray()) || [];
-  const filteredTasks = activeFolder === 'Tất cả' ? tasks : tasks.filter(t => t.tag === activeFolder);
-
+  // Lọc task: Nếu là "Tất cả" thì lấy mọi task TRỪ "Ngày lễ". Nếu là thư mục khác thì lọc theo tag đó.
+  const filteredTasks = activeFolder === 'Tất cả' 
+    ? tasks.filter(t => t.tag !== 'Ngày lễ') 
+    : tasks.filter(t => t.tag === activeFolder);
   // ---- HELPER FUNCTIONS ----
   const translatePriority = (p: string) => {
     switch(p) {

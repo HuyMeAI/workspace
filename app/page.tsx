@@ -30,18 +30,20 @@ export default function Home() {
 
   // 4. LẤY DỮ LIỆU TỪ DEXIE VÀ SẮP XẾP
   const rawTasks = useLiveQuery(() => db.tasks.toArray()) || [];
-  const tasks = [...rawTasks].sort((a: any, b: any) => {
-    if (sortBy === 'deadline') {
-      if (!a.end_datetime) return 1;
-      if (!b.end_datetime) return -1;
-      return new Date(a.end_datetime).getTime() - new Date(b.end_datetime).getTime();
-    }
-    if (sortBy === 'priority') {
-      const weight: Record<string, number> = { urgent: 3, high: 2, medium: 1, default: 0 };
-      return (weight[b.priority] || 0) - (weight[a.priority] || 0);
-    }
-    return b.id - a.id;
-  });
+  const tasks = [...rawTasks]
+    .filter((t: any) => t.tag !== 'Ngày lễ') 
+    .sort((a: any, b: any) => {
+      if (sortBy === 'deadline') {
+        if (!a.end_datetime) return 1;
+        if (!b.end_datetime) return -1;
+        return new Date(a.end_datetime).getTime() - new Date(b.end_datetime).getTime();
+      }
+      if (sortBy === 'priority') {
+        const weight: Record<string, number> = { urgent: 3, high: 2, medium: 1, default: 0 };
+        return (weight[b.priority] || 0) - (weight[a.priority] || 0);
+      }
+      return b.id - a.id;
+    });
 
   // 5. THEO DÕI MẠNG (ONLINE/OFFLINE)
   useEffect(() => {
