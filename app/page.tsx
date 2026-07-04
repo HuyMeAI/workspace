@@ -120,16 +120,34 @@ export default function Home() {
   const currentDateFormatted = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
 
   const getTimeStatus = (start: string | null, end: string | null, status: string) => {
+    // 1. Xử lý các trạng thái đặc biệt
     if (status === 'done') return { text: 'Đã hoàn thành', className: 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-500/10 border-transparent' };
     if (!end) return { text: 'Chưa xếp lịch', className: 'text-zinc-400 bg-zinc-100 dark:text-zinc-500 dark:bg-white/5 border-transparent' };
     
-    const diffMs = new Date(end).getTime() - today.getTime();
-    const diffMins = Math.abs(Math.floor(diffMs / (1000 * 60)));
+    // 2. Tính toán thời gian
+    const diffMs = new Date(end).getTime() - new Date().getTime();
+    const isOverdue = diffMs < 0;
+    const absDiff = Math.abs(diffMs);
     
-    if (diffMs < 0) {
-      return { text: diffMins < 60 ? `Trễ ${diffMins} phút` : diffMins < 1440 ? `Trễ ${Math.floor(diffMins/60)} giờ` : `Trễ ${Math.floor(diffMins/1440)} ngày`, className: 'text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20' };
+    const d = Math.floor(absDiff / (1000 * 60 * 60 * 24));
+    const h = Math.floor((absDiff / (1000 * 60 * 60)) % 24);
+    const m = Math.floor((absDiff / 1000 / 60) % 60);
+    
+    // 3. Định dạng chuỗi Text (VD: 1 ngày 5 giờ, 2 giờ 30 phút...)
+    let timeText = '';
+    if (d > 0) timeText = `${d} ngày ${h > 0 ? h + ' giờ' : ''}`;
+    else if (h > 0) timeText = `${h} giờ ${m} phút`;
+    else timeText = `${m} phút`;
+    
+    // 4. Trả về kết quả kèm CSS (Màu đỏ nếu trễ, Màu vàng nếu hạn trong ngày, Màu xám nếu còn xa)
+    if (isOverdue) {
+      return { text: `Trễ ${timeText}`, className: 'text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20' };
     }
-    return { text: diffMins < 60 ? `Còn ${diffMins} phút` : diffMins < 1440 ? `Còn ${Math.floor(diffMins/60)} giờ` : `Còn ${Math.floor(diffMins/1440)} ngày`, className: diffMins < 1440 ? 'text-[#d97706] bg-[#f7bd00]/15 border-[#f7bd00]/30 dark:text-[#f7bd00] dark:bg-[#f7bd00]/10 dark:border-[#f7bd00]/20' : 'text-zinc-500 bg-zinc-100 border-zinc-200 dark:text-zinc-400 dark:bg-white/5 dark:border-transparent' };
+    
+    return { 
+      text: `Còn ${timeText}`, 
+      className: d === 0 ? 'text-[#d97706] bg-[#f7bd00]/15 border-[#f7bd00]/30 dark:text-[#f7bd00] dark:bg-[#f7bd00]/10 dark:border-[#f7bd00]/20' : 'text-zinc-500 bg-zinc-100 border-zinc-200 dark:text-zinc-400 dark:bg-white/5 dark:border-transparent' 
+    };
   };
 
   const getTagStyle = (tag: string) => tag === 'Flyday Media' ? 'bg-[#f7bd00]/20 text-[#92400e] border-[#f7bd00]/30 dark:bg-[#f7bd00]/10 dark:text-[#f7bd00] dark:border-[#f7bd00]/20' : tag === 'Gia đình' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20';

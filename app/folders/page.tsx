@@ -43,18 +43,22 @@ export default function FoldersPage() {
     }
   };
 
-  const getTimeRemaining = (endDateStr: string | null) => {
+ const getTimeRemaining = (endDateStr: string | null) => {
     if (!endDateStr) return 'Không có hạn';
+    
     const end = new Date(endDateStr).getTime();
     const now = new Date().getTime();
     const diff = end - now;
 
     if (diff < 0) return 'Đã quá hạn';
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days > 0) return `Còn ${days} ngày`;
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours > 0) return `Còn ${hours} giờ`;
-    return 'Sắp đến hạn';
+
+    const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const m = Math.floor((diff / 1000 / 60) % 60);
+
+    if (d > 0) return `Còn ${d} ngày ${h > 0 ? h + ' giờ' : ''}`;
+    if (h > 0) return `Còn ${h} giờ ${m} phút`;
+    return `Còn ${m} phút`;
   };
 
   // ---- LOGIC THƯ MỤC ----

@@ -41,19 +41,49 @@ export default function EditTaskModal({ isOpen, task, onClose }: any) {
   // 3. Nếu Modal đang đóng HOẶC task bị null thì không render khung Modal
   if (!isOpen || !task) return null;
 
+  // THAY THẾ HÀM handleSave CŨ BẰNG HÀM NÀY
   const handleSave = async () => {
     if (!title.trim()) return alert('Vui lòng nhập tên công việc');
-    await db.tasks.update(task.id, {
+
+    // Chuẩn bị cục dữ liệu chuẩn bị gửi đi
+    const updatedData = {
       title, description, tag, priority, status,
       start_datetime: startDatetime ? new Date(startDatetime).toISOString() : null,
       end_datetime: endDatetime ? new Date(endDatetime).toISOString() : null,
-      updated_at: new Date().toISOString()
-    });
+    };
+
+    try {
+      // 1. GỌI API LÊN LARAVEL NGAY LẬP TỨC ĐỂ ĐỒNG BỘ GOOGLE CALENDAR
+      const res = await fetch(`https://api.tranduchuy.com/api/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(updatedData)
+      });
+
+      // 2. Cập nhật lại màn hình ổ cứng (Dexie)
+      if (res.ok) {
+        const serverTask = await res.json();
+        await db.tasks.update(task.id, serverTask); // Lưu data chuẩn từ server về
+      } else {
+        await db.tasks.update(task.id, updatedData); // Chạy Offline nếu mạng lỗi
+      }
+    } catch (error) {
+      console.error("Lỗi API Cập nhật:", error);
+      await db.tasks.update(task.id, updatedData); // Chạy Offline nếu mạng lỗi
+    }
+
     onClose();
   };
 
   const handleDelete = async () => {
     if(confirm('Bạn chắc chắn muốn xóa công việc này?')) {
+      try {
+        await fetch(`https://api.tranduchuy.com/api/tasks/${task.id}`, { method: 'DELETE' });
+      } catch(e) { console.log(e) }
+      
       await db.tasks.delete(task.id);
       onClose();
     }
