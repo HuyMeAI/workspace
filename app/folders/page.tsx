@@ -43,22 +43,38 @@ export default function FoldersPage() {
     }
   };
 
- const getTimeRemaining = (endDateStr: string | null) => {
-    if (!endDateStr) return 'Không có hạn';
+ const getTimeRemaining = (startStr: string | null, endStr: string | null) => {
+    if (!startStr) return 'Chưa xếp lịch';
     
-    const end = new Date(endDateStr).getTime();
     const now = new Date().getTime();
-    const diff = end - now;
+    const start = new Date(startStr).getTime();
+    const end = endStr ? new Date(endStr).getTime() : start;
 
-    if (diff < 0) return 'Đã quá hạn';
+    let targetTime = start;
+    let prefix = 'Còn';
 
-    const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-    const m = Math.floor((diff / 1000 / 60) % 60);
+    if (now < start) {
+      targetTime = start;
+      prefix = 'Còn';
+    } else if (now >= start && now <= end) {
+      targetTime = end;
+      prefix = 'Deadline:';
+    } else {
+      targetTime = end;
+      prefix = 'Trễ';
+    }
 
-    if (d > 0) return `Còn ${d} ngày ${h > 0 ? h + ' giờ' : ''}`;
-    if (h > 0) return `Còn ${h} giờ ${m} phút`;
-    return `Còn ${m} phút`;
+    const diffMs = Math.abs(targetTime - now);
+    const d = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const h = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+    const m = Math.floor((diffMs / 1000 / 60) % 60);
+
+    let timeText = '';
+    if (d > 0) timeText = `${d} ngày ${h > 0 ? h + 'g' : ''}`;
+    else if (h > 0) timeText = `${h} giờ ${m}p`;
+    else timeText = `${m} phút`;
+
+    return `${prefix} ${timeText}`;
   };
 
   // ---- LOGIC THƯ MỤC ----
@@ -150,7 +166,7 @@ export default function FoldersPage() {
                 {/* Đã loại bỏ Tag, hiển thị Thời gian và Ưu tiên (Tiếng Việt) */}
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 bg-white dark:bg-white/5 px-2.5 py-1 rounded-md border border-zinc-200 dark:border-white/5">
-                    <Clock size={14} /> {getTimeRemaining(task.end_datetime)}
+                    <Clock size={14} /> {getTimeRemaining(task.start_datetime, task.end_datetime)}
                   </div>
                   <span className={`text-[10px] uppercase font-extrabold px-2 py-1.5 rounded-md ${task.priority === 'urgent' ? 'bg-red-500/10 text-red-500' : task.priority === 'high' ? 'bg-orange-500/10 text-orange-500' : task.priority === 'medium' ? 'bg-blue-500/10 text-blue-500' : 'bg-zinc-500/10 text-zinc-500'}`}>
                     {translatePriority(task.priority)}

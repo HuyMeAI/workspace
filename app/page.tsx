@@ -120,32 +120,49 @@ export default function Home() {
   const currentDateFormatted = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
 
   const getTimeStatus = (start: string | null, end: string | null, status: string) => {
-    // 1. Xử lý các trạng thái đặc biệt
     if (status === 'done') return { text: 'Đã hoàn thành', className: 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-500/10 border-transparent' };
-    if (!end) return { text: 'Chưa xếp lịch', className: 'text-zinc-400 bg-zinc-100 dark:text-zinc-500 dark:bg-white/5 border-transparent' };
+    if (!start) return { text: 'Chưa xếp lịch', className: 'text-zinc-400 bg-zinc-100 dark:text-zinc-500 dark:bg-white/5 border-transparent' };
     
-    // 2. Tính toán thời gian
-    const diffMs = new Date(end).getTime() - new Date().getTime();
-    const isOverdue = diffMs < 0;
-    const absDiff = Math.abs(diffMs);
+    const now = new Date().getTime();
+    const startTime = new Date(start).getTime();
+    const endTime = end ? new Date(end).getTime() : startTime;
     
-    const d = Math.floor(absDiff / (1000 * 60 * 60 * 24));
-    const h = Math.floor((absDiff / (1000 * 60 * 60)) % 24);
-    const m = Math.floor((absDiff / 1000 / 60) % 60);
+    let targetTime = startTime;
+    let prefix = 'Còn';
+    let isOverdue = false;
+
+    // THUẬT TOÁN THÔNG MINH NHẬN DIỆN NGỮ CẢNH
+    if (now < startTime) {
+      // 1. Chưa bắt đầu -> Đếm tới giờ bắt đầu
+      targetTime = startTime;
+      prefix = 'Còn';
+    } else if (now >= startTime && now <= endTime) {
+      // 2. Đang trong khung giờ làm -> Đếm tới Deadline
+      targetTime = endTime;
+      prefix = 'Hạn chót:';
+    } else {
+      // 3. Đã qua Deadline -> Báo trễ
+      targetTime = endTime;
+      prefix = 'Trễ';
+      isOverdue = true;
+    }
+
+    const diffMs = Math.abs(targetTime - now);
+    const d = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const h = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+    const m = Math.floor((diffMs / 1000 / 60) % 60);
     
-    // 3. Định dạng chuỗi Text (VD: 1 ngày 5 giờ, 2 giờ 30 phút...)
     let timeText = '';
     if (d > 0) timeText = `${d} ngày ${h > 0 ? h + ' giờ' : ''}`;
     else if (h > 0) timeText = `${h} giờ ${m} phút`;
     else timeText = `${m} phút`;
     
-    // 4. Trả về kết quả kèm CSS (Màu đỏ nếu trễ, Màu vàng nếu hạn trong ngày, Màu xám nếu còn xa)
     if (isOverdue) {
       return { text: `Trễ ${timeText}`, className: 'text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20' };
     }
     
     return { 
-      text: `Còn ${timeText}`, 
+      text: `${prefix} ${timeText}`, 
       className: d === 0 ? 'text-[#d97706] bg-[#f7bd00]/15 border-[#f7bd00]/30 dark:text-[#f7bd00] dark:bg-[#f7bd00]/10 dark:border-[#f7bd00]/20' : 'text-zinc-500 bg-zinc-100 border-zinc-200 dark:text-zinc-400 dark:bg-white/5 dark:border-transparent' 
     };
   };
