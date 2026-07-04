@@ -8,15 +8,15 @@ export default function Sidebar({ isDarkMode, toggleTheme, onOpenModal, onShowTo
         Workspace<span className="text-[#d97706] dark:text-[#f7bd00]">.</span>
       </div>
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto relative z-10">
-        <a href="#" className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-[#f7bd00]/15 dark:from-[#f7bd00]/10 to-transparent border-l-2 border-[#d97706] dark:border-[#f7bd00] text-[#b45309] dark:text-[#f7bd00] font-bold transition">
+        <a href="/" className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold transition">
           <Home size={20} /> Trang chủ
         </a>
         <button onClick={() => onShowToast('Tính năng Thư mục đang phát triển', 'success')} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition font-medium">
           <Folder size={20} /> Thư mục
         </button>
-        <button onClick={() => onShowToast('Tính năng Lịch trình đang phát triển', 'success')} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition font-medium">
+        <a href="/schedule" className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold transition">
           <Calendar size={20} /> Lịch trình
-        </button>
+        </a>
         <button onClick={toggleTheme} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition font-medium mt-4 border border-zinc-200 dark:border-white/5">
           {isDarkMode ? <Sun size={20} className="text-[#f7bd00]" /> : <Moon size={20} className="text-zinc-600" />}
           {isDarkMode ? 'Giao diện Sáng' : 'Giao diện Tối'}

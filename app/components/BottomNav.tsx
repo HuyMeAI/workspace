@@ -10,7 +10,7 @@ export default function BottomNav({ isDarkMode, toggleTheme, onOpenModal, onShow
              <Plus size={28} strokeWidth={3} />
           </button>
        </div>
-       <button onClick={() => onShowToast('Đang phát triển', 'success')} className="flex flex-col items-center p-2 text-zinc-400 dark:text-zinc-500"><Calendar size={24} /></button>
+       <a href="/schedule" className="flex flex-col items-center p-2 text-zinc-400 dark:text-zinc-500"><Calendar size={24} /></a>
        <button onClick={toggleTheme} className="flex flex-col items-center p-2 text-zinc-400 dark:text-zinc-500 active:scale-90 transition-transform">
          {isDarkMode ? <Sun size={24} className="text-[#f7bd00]" /> : <Moon size={24} />}
        </button>
