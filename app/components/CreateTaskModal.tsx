@@ -2,6 +2,7 @@ import { useState } from 'react';
 import db from '../db/workspaceDB';
 import { syncService } from '../services/syncService';
 import { X, AlignLeft, Tag, Flag } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 const getTodayAt = (hours: number, minutes: number) => {
   const d = new Date();
@@ -21,6 +22,8 @@ export default function CreateTaskModal({ isOpen, onClose, onShowToast }: any) {
   const [priority, setPriority] = useState('urgent');
   const [startDatetime, setStartDatetime] = useState(getTodayAt(9, 0));
   const [endDatetime, setEndDatetime] = useState(getTodayAt(19, 0));
+
+  const folders = useLiveQuery(() => db.folders.where('is_readonly').equals(0).toArray()) || [];
 
   const handleSaveTask = async () => {
     if (!title.trim()) {
@@ -72,10 +75,10 @@ export default function CreateTaskModal({ isOpen, onClose, onShowToast }: any) {
           <div className="flex-none grid grid-cols-2 gap-4 sm:gap-5">
             <div className="p-4 bg-white dark:bg-black/50 rounded-2xl border border-zinc-200 dark:border-white/5 shadow-sm dark:shadow-none">
               <div className="flex items-center gap-2 text-xs font-bold text-zinc-500 dark:text-zinc-500 mb-2 uppercase tracking-wider"><Tag size={14} /> Thư mục</div>
-              <select className="w-full bg-transparent text-sm font-semibold border-none focus:ring-0 focus:outline-none p-0 text-zinc-800 dark:text-zinc-200 cursor-pointer" value={tag} onChange={(e) => setTag(e.target.value)}>
-                <option value="Flyday Media">Flyday Media</option>
-                <option value="Cá nhân">Cá nhân</option>
-                <option value="Gia đình">Gia đình</option>
+              <select className="w-full bg-transparent text-sm font-semibold border-none focus:ring-0 p-0 text-zinc-800 dark:text-zinc-200 cursor-pointer" value={tag} onChange={(e) => setTag(e.target.value)}>
+              {folders.map(f => (
+              <option key={f.id} value={f.name}>{f.name}</option>
+              ))}
               </select>
             </div>
             <div className={`p-4 bg-white dark:bg-black/50 rounded-2xl border border-zinc-200 dark:border-white/5 shadow-sm dark:shadow-none ${priority === 'urgent' ? 'text-red-600' : priority === 'high' ? 'text-[#d97706] dark:text-[#f7bd00]' : 'text-blue-500'}`}>

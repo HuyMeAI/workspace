@@ -11,9 +11,9 @@ export default function Sidebar({ isDarkMode, toggleTheme, onOpenModal, onShowTo
         <a href="/" className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold transition">
           <Home size={20} /> Trang chủ
         </a>
-        <button onClick={() => onShowToast('Tính năng Thư mục đang phát triển', 'success')} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition font-medium">
-          <Folder size={20} /> Thư mục
-        </button>
+        <a href="/folders" className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold transition">
+          <Folder size={20} /> Folder
+        </a>
         <a href="/schedule" className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold transition">
           <Calendar size={20} /> Lịch trình
         </a>
