@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import db from '../db/workspaceDB';
+import db from '@/app/db/workspaceDB';
 import { Folder, Settings, Plus, Trash2, Info, X, CheckCircle2 } from 'lucide-react';
 
 export default function FoldersPage() {
