@@ -74,10 +74,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
 
         {/* Render Nội Dung Chính của Trang */}
-        <main className="flex-1 h-full overflow-y-auto pb-24 md:pb-0 relative z-0">
+        <main className="flex-1 h-full overflow-y-auto pb-24 md:pb-0">
           {children}
         </main>
-
         {/* Render Menu Đáy trên Mobile */}
         <BottomNav 
           isDarkMode={isDarkMode} 
