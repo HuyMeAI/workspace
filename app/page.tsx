@@ -10,6 +10,9 @@ import Toast from './components/Toast';
 import { LayoutList, KanbanSquare, Circle, CheckCircle2, Flag, Clock, Trash2, ArrowUpDown, Cloud, CloudOff, RefreshCw } from 'lucide-react';
 
 export default function Home() {
+  // STATE CHỐNG LỖI HYDRATION (LỖI 418)
+  const [isMounted, setIsMounted] = useState(false);
+
   // 1. STATE HIỂN THỊ & SẮP XẾP
   const [viewMode, setViewMode] = useState('list');
   const [sortBy, setSortBy] = useState('default');
@@ -45,8 +48,11 @@ export default function Home() {
       return b.id - a.id;
     });
 
-  // 5. THEO DÕI MẠNG (ONLINE/OFFLINE)
+  // 5. THEO DÕI MẠNG & MOUNT COMPONENT
   useEffect(() => {
+    // Đánh dấu đã mount xong trên trình duyệt
+    setIsMounted(true);
+
     setIsOnline(navigator.onLine);
     const handleSync = async () => {
       setIsSyncing(true);
@@ -185,17 +191,13 @@ export default function Home() {
     let prefix = 'Còn';
     let isOverdue = false;
 
-    // THUẬT TOÁN THÔNG MINH NHẬN DIỆN NGỮ CẢNH
     if (now < startTime) {
-      // 1. Chưa bắt đầu -> Đếm tới giờ bắt đầu
       targetTime = startTime;
       prefix = 'Còn';
     } else if (now >= startTime && now <= endTime) {
-      // 2. Đang trong khung giờ làm -> Đếm tới Deadline
       targetTime = endTime;
       prefix = 'Hạn chót:';
     } else {
-      // 3. Đã qua Deadline -> Báo trễ
       targetTime = endTime;
       prefix = 'Trễ';
       isOverdue = true;
@@ -230,6 +232,9 @@ export default function Home() {
     { id: 'in_progress', title: 'ĐANG LÀM', dot: 'bg-[#f7bd00] shadow-[0_0_8px_rgba(247,189,0,0.6)]' },
     { id: 'done', title: 'HOÀN THÀNH', dot: 'bg-green-500' },
   ];
+
+  // CHẶN HYDRATION MISMATCH TẠI ĐÂY
+  if (!isMounted) return null;
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto h-full flex flex-col relative">

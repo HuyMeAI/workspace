@@ -7,6 +7,9 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X } from 'lucide-r
 import EditTaskModal from '../components/EditTaskModal';
 
 export default function SchedulePage() {
+  // STATE CHỐNG LỖI HYDRATION (LỖI 418)
+  const [isMounted, setIsMounted] = useState(false);
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -32,8 +35,10 @@ export default function SchedulePage() {
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
-  // Tự động tắt Toast sau 3 giây
+  // Tự động tắt Toast sau 3 giây & Báo hiệu Mount
   useEffect(() => {
+    setIsMounted(true); // Đánh dấu trình duyệt tải xong
+
     if (toastMessage) {
       const timer = setTimeout(() => setToastMessage(null), 3000);
       return () => clearTimeout(timer);
@@ -87,6 +92,9 @@ export default function SchedulePage() {
       {task.title}
     </div>
   );
+
+  // CHẶN LỖI HYDRATION TẠI ĐÂY
+  if (!isMounted) return null;
 
   return (
     <div className="p-3 md:p-6 lg:p-10 max-w-7xl mx-auto h-full flex flex-col relative overflow-hidden">
@@ -149,7 +157,6 @@ export default function SchedulePage() {
               <div 
                 key={idx} 
                 onClick={() => day && setSelectedDailyDate(new Date(year, month, day))}
-                // ĐÃ FIX LỖI ĐÈ TASK: Bổ sung 'overflow-hidden' vào ô cell để khóa cứng phần tử con
                 className={`min-h-[100px] md:min-h-[140px] p-1 md:p-2 border-b border-r border-zinc-100 dark:border-white/5 flex flex-col gap-0.5 md:gap-1.5 cursor-pointer transition-colors overflow-hidden ${day?'hover:bg-zinc-50/50 dark:hover:bg-white/5':'bg-zinc-50/50 dark:bg-white/[0.02]'}`}
               >
                 {day && (
