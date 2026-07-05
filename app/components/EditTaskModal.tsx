@@ -6,7 +6,6 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { X, Save, Trash2, Tag, Flag, AlignLeft, CheckCircle2 } from 'lucide-react';
 
 export default function EditTaskModal({ isOpen, task, onClose }: any) {
-  // 1. Khởi tạo giá trị mặc định an toàn (tránh lỗi null)
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tag, setTag] = useState('');
@@ -14,6 +13,9 @@ export default function EditTaskModal({ isOpen, task, onClose }: any) {
   const [status, setStatus] = useState('todo');
   const [startDatetime, setStartDatetime] = useState('');
   const [endDatetime, setEndDatetime] = useState('');
+  
+  // STATE MỚI: Quản lý giao diện xác nhận xóa chuẩn UI
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   const formatLocalDatetime = (dateStr: string) => {
     if(!dateStr) return '';
@@ -22,7 +24,6 @@ export default function EditTaskModal({ isOpen, task, onClose }: any) {
     return d.toISOString().slice(0, 16);
   };
 
-  // 2. Tự động nạp dữ liệu từ Task vào State ngay khi Task thay đổi
   useEffect(() => {
     if (task) {
       setTitle(task.title || '');
@@ -32,75 +33,64 @@ export default function EditTaskModal({ isOpen, task, onClose }: any) {
       setStatus(task.status || 'todo');
       setStartDatetime(formatLocalDatetime(task.start_datetime));
       setEndDatetime(formatLocalDatetime(task.end_datetime));
+      setIsConfirmingDelete(false); // Reset trạng thái xóa khi mở task khác
     }
   }, [task]);
 
-  // Lấy danh sách Thư mục động & Sắp xếp
   const folders = useLiveQuery(() => db.folders.where('is_readonly').equals(0).toArray())?.sort((a, b) => (a.order || 0) - (b.order || 0)) || [];
 
-  // 3. Nếu Modal đang đóng HOẶC task bị null thì không render khung Modal
   if (!isOpen || !task) return null;
 
-  // THAY THẾ HÀM handleSave CŨ BẰNG HÀM NÀY
   const handleSave = async () => {
     if (!title.trim()) return alert('Vui lòng nhập tên công việc');
 
-    // Chuẩn bị cục dữ liệu chuẩn bị gửi đi
     const updatedData = {
       title, description, tag, priority, status,
       start_datetime: startDatetime ? new Date(startDatetime).toISOString() : null,
       end_datetime: endDatetime ? new Date(endDatetime).toISOString() : null,
+      updated_at: new Date().toISOString()
     };
 
     try {
-      // 1. GỌI API LÊN LARAVEL NGAY LẬP TỨC ĐỂ ĐỒNG BỘ GOOGLE CALENDAR
       const res = await fetch(`https://api.tranduchuy.com/api/tasks/${task.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify(updatedData)
       });
-
-      // 2. Cập nhật lại màn hình ổ cứng (Dexie)
       if (res.ok) {
         const serverTask = await res.json();
-        await db.tasks.update(task.id, serverTask); // Lưu data chuẩn từ server về
+        await db.tasks.update(task.id, serverTask); 
       } else {
-        await db.tasks.update(task.id, updatedData); // Chạy Offline nếu mạng lỗi
+        await db.tasks.update(task.id, updatedData); 
       }
     } catch (error) {
-      console.error("Lỗi API Cập nhật:", error);
-      await db.tasks.update(task.id, updatedData); // Chạy Offline nếu mạng lỗi
+      await db.tasks.update(task.id, updatedData); 
     }
-
     onClose();
   };
 
   const handleDelete = async () => {
-    if(confirm('Bạn chắc chắn muốn xóa công việc này?')) {
-      try {
-        await fetch(`https://api.tranduchuy.com/api/tasks/${task.id}`, { method: 'DELETE' });
-      } catch(e) { console.log(e) }
-      
-      await db.tasks.delete(task.id);
-      onClose();
-    }
+    // Đã thay thế alert bằng hàm xóa trực tiếp (Vì đã được Confirm ở UI)
+    try {
+      await fetch(`https://api.tranduchuy.com/api/tasks/${task.id}`, { method: 'DELETE' });
+    } catch(e) { console.log(e) }
+    
+    await db.tasks.delete(task.id);
+    onClose();
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4">
-      <div className="bg-white dark:bg-[#18181b] w-full max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[90vh] sm:max-h-[85vh] overflow-hidden">
+      <div className="bg-white dark:bg-[#18181b] w-full max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
         
-        {/* HEADER */}
-        <div className="p-5 sm:p-6 border-b border-zinc-100 dark:border-white/5 flex justify-between items-center bg-zinc-50/50 dark:bg-black/20">
+        {/* HEADER: Đã thêm flex-shrink-0 để không bị bóp méo */}
+        <div className="flex-shrink-0 p-5 sm:p-6 border-b border-zinc-100 dark:border-white/5 flex justify-between items-center bg-zinc-50/50 dark:bg-black/20">
           <h2 className="text-xl font-extrabold text-zinc-900 dark:text-white">Sửa Task</h2>
           <button onClick={onClose} className="p-2 bg-zinc-200 dark:bg-white/10 rounded-full hover:bg-red-500 hover:text-white transition"><X size={18}/></button>
         </div>
 
-        {/* BODY */}
-        <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5">
+        {/* BODY: Bắt buộc co giãn và scroll */}
+        <div className="flex-1 p-5 sm:p-6 overflow-y-auto custom-scrollbar space-y-5">
           <div>
             <input type="text" value={title} onChange={e=>setTitle(e.target.value)} className="w-full text-2xl font-extrabold bg-transparent text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-0 px-0" placeholder="Tên công việc..."/>
           </div>
@@ -154,13 +144,23 @@ export default function EditTaskModal({ isOpen, task, onClose }: any) {
           </div>
         </div>
 
-        {/* FOOTER CHỨA NÚT */}
-        <div className="p-4 sm:p-6 border-t border-zinc-100 dark:border-white/5 bg-zinc-50 dark:bg-black/20 mt-auto flex gap-3">
-          <button onClick={handleDelete} className="p-3.5 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-xl font-bold hover:bg-red-500 hover:text-white transition"><Trash2 size={20}/></button>
-          <button onClick={handleSave} className="flex-1 bg-[#f7bd00] text-black font-extrabold rounded-xl shadow-md hover:bg-[#e5ae00] transition flex items-center justify-center gap-2">
-            <Save size={20}/> LƯU THAY ĐỔI
-          </button>
-        </div>
+        {/* FOOTER: Đã khóa flex-shrink-0 để luôn neo ở đáy */}
+        {isConfirmingDelete ? (
+          <div className="flex-shrink-0 p-4 sm:p-6 pb-8 sm:pb-6 border-t border-zinc-100 dark:border-white/5 bg-zinc-50 dark:bg-black/20 flex flex-col gap-3">
+            <p className="text-sm font-bold text-center text-zinc-700 dark:text-zinc-300">Bạn chắc chắn muốn xóa công việc này?</p>
+            <div className="flex gap-3">
+               <button onClick={() => setIsConfirmingDelete(false)} className="flex-1 p-3.5 bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold hover:bg-zinc-300 transition">Hủy</button>
+               <button onClick={handleDelete} className="flex-1 p-3.5 bg-red-500 text-white rounded-xl font-bold shadow-md hover:bg-red-600 transition">Xác nhận xóa</button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-shrink-0 p-4 sm:p-6 pb-8 sm:pb-6 border-t border-zinc-100 dark:border-white/5 bg-zinc-50 dark:bg-black/20 flex gap-3">
+            <button onClick={() => setIsConfirmingDelete(true)} className="p-3.5 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-xl font-bold hover:bg-red-500 hover:text-white transition"><Trash2 size={20}/></button>
+            <button onClick={handleSave} className="flex-1 bg-[#f7bd00] text-black font-extrabold rounded-xl shadow-md hover:bg-[#e5ae00] transition flex items-center justify-center gap-2">
+              <Save size={20}/> Lưu Thay Đổi
+            </button>
+          </div>
+        )}
 
       </div>
     </div>

@@ -77,11 +77,32 @@ export default function Home() {
   };
 
   // 6. CÁC HÀM XỬ LÝ SỰ KIỆN (XÓA, SỬA, KÉO THẢ)
+  
   const toggleTaskStatus = async (e: React.MouseEvent, id: number, currentStatus: string) => {
     e.stopPropagation();
     const newStatus = currentStatus === 'done' ? 'todo' : 'done';
-    await db.tasks.update(id, { status: newStatus, is_synced: 0 });
-    if (isOnline) syncService.pushToServer();
+    
+    // 1. Cập nhật giao diện mượt mà ngay lập tức (Optimistic UI)
+    await db.tasks.update(id, { status: newStatus });
+
+    // 2. Gửi lệnh PUT trực tiếp lên Laravel (Bỏ qua syncService gây lỗi)
+    if (isOnline) {
+      try {
+        const taskToUpdate = await db.tasks.get(id);
+        if (taskToUpdate) {
+          await fetch(`https://api.tranduchuy.com/api/tasks/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ ...taskToUpdate, status: newStatus })
+          });
+        }
+      } catch (error) {
+        console.error('Lỗi cập nhật trạng thái:', error);
+        await db.tasks.update(id, { is_synced: 0 }); // Fallback nếu rớt mạng
+      }
+    } else {
+      await db.tasks.update(id, { is_synced: 0 });
+    }
   };
 
   const requestDelete = (e: React.MouseEvent, id: number) => {
@@ -91,11 +112,22 @@ export default function Home() {
 
   const executeDelete = async () => {
     if (confirmDialog.taskId) {
-      await db.tasks.delete(confirmDialog.taskId);
+      const idToDelete = confirmDialog.taskId;
+      
+      // Đóng UI ngay lập tức
       setConfirmDialog({ isOpen: false, taskId: 0 });
       setEditModal({ isOpen: false, task: null });
+      await db.tasks.delete(idToDelete);
       showToast('Đã xóa công việc thành công!');
-      if (isOnline) syncService.pushToServer();
+
+      // Gửi lệnh DELETE trực tiếp lên Laravel
+      if (isOnline) {
+        try {
+          await fetch(`https://api.tranduchuy.com/api/tasks/${idToDelete}`, { method: 'DELETE' });
+        } catch (error) {
+          console.error('Lỗi xóa task:', error);
+        }
+      }
     }
   };
 
@@ -105,11 +137,33 @@ export default function Home() {
 
   const handleDragStart = (e: React.DragEvent, id: number) => e.dataTransfer.setData('text/plain', id.toString());
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
+  
   const handleDrop = async (e: React.DragEvent, targetStatus: string) => {
     const idStr = e.dataTransfer.getData('text/plain');
     if (idStr) {
-      await db.tasks.update(Number(idStr), { status: targetStatus, is_synced: 0 });
-      if (isOnline) syncService.pushToServer();
+      const id = Number(idStr);
+      
+      // Cập nhật UI
+      await db.tasks.update(id, { status: targetStatus });
+
+      // Gửi lệnh PUT trực tiếp lên Laravel
+      if (isOnline) {
+        try {
+          const taskToUpdate = await db.tasks.get(id);
+          if (taskToUpdate) {
+            await fetch(`https://api.tranduchuy.com/api/tasks/${id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify({ ...taskToUpdate, status: targetStatus })
+            });
+          }
+        } catch (error) {
+          console.error('Lỗi kéo thả:', error);
+          await db.tasks.update(id, { is_synced: 0 }); // Fallback
+        }
+      } else {
+        await db.tasks.update(id, { is_synced: 0 });
+      }
     }
   };
 
