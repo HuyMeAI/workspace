@@ -4,14 +4,11 @@ import { useState, useEffect } from 'react';
 import './globals.css';
 import { Sun, Moon } from 'lucide-react';
 
-// Import các viên gạch Lego đã tách
 import Toast from './components/Toast';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import CreateTaskModal from './components/CreateTaskModal';
 import FocusModeOverlay from './components/FocusModeOverlay';
-
-// CHÚ Ý: ĐÃ XÓA KHỐI METADATA Ở ĐÂY ĐỂ TRÁNH LỖI CRASH APP
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,57 +47,38 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="vi" suppressHydrationWarning>
       <head>
-        {/* TÊN TIÊU ĐỀ TRÊN TAB TRÌNH DUYỆT */}
         <title>Huy Workspace</title>
         <meta name="description" content="Hệ thống quản lý công việc" />
-
-        {/* THAY FAVICON CHO MÁY TÍNH & TRÌNH DUYỆT CHROME/SAFARI */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
         <link rel="icon" type="image/jpeg" href="https://workspace.tranduchuy.com/logo.jpg" />
         <link rel="shortcut icon" href="https://workspace.tranduchuy.com/logo.jpg" />
-
-        {/* THAY AVATAR KHI LƯU RA MÀN HÌNH CHÍNH TRÊN IPHONE/IPAD */}
         <link rel="apple-touch-icon" href="https://workspace.tranduchuy.com/logo.jpg" />
       </head>
 
       <body className="bg-zinc-50 text-zinc-900 dark:bg-[#09090b] dark:text-zinc-100 antialiased h-screen overflow-hidden flex transition-colors duration-500" suppressHydrationWarning>
-        
-        {/* Render Toast Global */}
         <Toast isOpen={toast.isOpen} message={toast.message} type={toast.type} />
-
-        {/* Render Thanh Menu Trái */}
-        <Sidebar 
-          isDarkMode={isDarkMode} 
-          toggleTheme={toggleTheme} 
-          onOpenModal={() => setIsModalOpen(true)} 
-          onShowToast={showToast} 
-        />
-
-        {/* Render Nội Dung Chính của Trang */}
-        <main className="flex-1 h-full overflow-y-auto pb-24 md:pb-0">
-          {children}
-        </main>
         
-        {/* Render Menu Đáy trên Mobile */}
-        <BottomNav 
-          onOpenModal={() => setIsModalOpen(true)} 
-        />
+        <Sidebar isDarkMode={isDarkMode} toggleTheme={toggleTheme} onOpenModal={() => setIsModalOpen(true)} onShowToast={showToast} />
 
-        {/* NÚT ĐỔI GIAO DIỆN NỔI DÀNH RIÊNG CHO MOBILE */}
-        <button 
-          onClick={toggleTheme} 
-          className="md:hidden fixed top-6 right-5 z-40 p-2.5 bg-white/80 dark:bg-[#18181b]/80 backdrop-blur-md border border-zinc-200 dark:border-white/10 rounded-full shadow-sm active:scale-90 transition-all text-zinc-500 dark:text-zinc-400"
-        >
-          {isDarkMode ? <Sun size={20} className="text-[#f7bd00]" /> : <Moon size={20} />}
-        </button>
+        <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+          
+          {/* ĐẠI TU: THANH TOP BAR MOBILE CHUYÊN NGHIỆP (GIẢI QUYẾT LỖI ĐÈ NÚT) */}
+          <div className="md:hidden flex items-center justify-between px-5 h-16 bg-white/90 dark:bg-[#09090b]/90 backdrop-blur-xl border-b border-zinc-200 dark:border-white/5 sticky top-0 z-40">
+            <div className="font-extrabold text-xl tracking-tight">
+              Workspace<span className="text-[#d97706] dark:text-[#f7bd00]">.</span>
+            </div>
+            <button onClick={toggleTheme} className="p-2 bg-zinc-100 dark:bg-white/10 rounded-full text-zinc-600 dark:text-zinc-300 active:scale-90 transition-transform">
+              {isDarkMode ? <Sun size={18} className="text-[#f7bd00]" /> : <Moon size={18} />}
+            </button>
+          </div>
 
-        {/* Render Cửa sổ Tạo Task */}
-        <CreateTaskModal 
-          isOpen={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
-          onShowToast={showToast} 
-        />
-
-        {/* HIỆU ỨNG TẬP TRUNG (FOCUS MODE OVERLAY) */}
+          <main className="flex-1 overflow-y-auto pb-24 md:pb-0">
+            {children}
+          </main>
+        </div>
+        
+        <BottomNav onOpenModal={() => setIsModalOpen(true)} />
+        <CreateTaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onShowToast={showToast} />
         <FocusModeOverlay />
 
       </body>

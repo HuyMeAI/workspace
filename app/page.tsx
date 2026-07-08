@@ -291,32 +291,40 @@ export default function Home() {
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog({ isOpen: false, taskId: 0 })} onConfirm={executeDelete} />
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#f7bd00]/5 dark:bg-[#f7bd00]/10 blur-[120px] rounded-full pointer-events-none -z-10"></div>
 
-      <div className="mb-8 flex-shrink-0 relative z-10">
-        <div className="flex justify-between items-start mb-2">
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
-            {greetingPrefix} <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#d97706] to-[#b45309] dark:from-[#f7bd00] dark:to-[#f59e0b]">Huy!</span> 👋
-          </h1>
-          <button onClick={manualSync} disabled={!isOnline || isSyncing} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${isOnline ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20' : 'bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20'}`}>
-            {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : isOnline ? <Cloud size={14} /> : <CloudOff size={14} />}
-            <span className="hidden sm:inline">{isSyncing ? 'Đang đồng bộ...' : isOnline ? 'Đã đồng bộ' : 'Offline'}</span>
-          </button>
-        </div>
-        <p className="text-zinc-500 dark:text-zinc-400 mb-6 font-medium">Bạn có <span className="text-[#d97706] dark:text-[#f7bd00] font-bold">{tasks.filter((t:any) => t.status !== 'done').length} công việc</span> quan trọng hôm nay.</p>
+      {/* HEADER DASHBOARD TỐI ƯU UI/UX */}
+      <div className="mb-6 md:mb-8 flex-shrink-0 relative z-10 pt-2 md:pt-0">
         
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h2 className="text-xl font-bold tracking-wide text-zinc-800 dark:text-zinc-100">{currentDateFormatted}</h2>
+        <div className="flex justify-between items-center mb-1">
+          {/* CÂU CHÀO ÉP TRÊN 1 DÒNG */}
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white flex items-center gap-1.5 truncate">
+            {greetingPrefix} <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#d97706] to-[#b45309] dark:from-[#f7bd00] dark:to-[#f59e0b] truncate">Huy!</span> 👋
+          </h1>
+        </div>
+        <p className="text-sm md:text-base text-zinc-500 dark:text-zinc-400 mb-5 md:mb-6 font-medium">Bạn có <span className="text-[#d97706] dark:text-[#f7bd00] font-bold">{tasks.filter((t:any) => t.status !== 'done').length} công việc</span> quan trọng hôm nay.</p>
+        
+        {/* THANH CÔNG CỤ: NGÀY THÁNG, ĐỒNG BỘ, SẮP XẾP */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-white/[0.02] p-3 md:p-0 rounded-2xl md:bg-transparent md:dark:bg-transparent border md:border-none border-zinc-200 dark:border-white/5 shadow-sm md:shadow-none">
+          <div className="flex items-center justify-between w-full sm:w-auto">
+            <h2 className="text-lg md:text-xl font-bold tracking-wide text-zinc-800 dark:text-zinc-100">{currentDateFormatted}</h2>
+            {/* NÚT ĐỒNG BỘ ĐÃ ĐƯỢC DỜI XUỐNG ĐÂY CHO HỢP LOGIC & KHÔNG GIAN */}
+            <button onClick={manualSync} disabled={!isOnline || isSyncing} className={`md:ml-4 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${isOnline ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20' : 'bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20'}`}>
+              {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : isOnline ? <Cloud size={14} /> : <CloudOff size={14} />}
+              <span>{isSyncing ? 'Đang tải...' : isOnline ? 'Đồng bộ' : 'Offline'}</span>
+            </button>
+          </div>
+          
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="flex-1 sm:flex-none flex items-center gap-2 bg-white dark:bg-black/50 px-3 py-2 rounded-xl border border-zinc-200 dark:border-white/5 shadow-sm backdrop-blur-md">
+            <div className="flex-1 sm:flex-none flex items-center gap-2 bg-zinc-100 dark:bg-black/50 px-3 py-2 rounded-xl border border-transparent dark:border-white/5">
               <ArrowUpDown size={16} className="text-zinc-400 flex-shrink-0" />
               <select className="w-full bg-transparent text-sm font-bold text-zinc-700 dark:text-zinc-300 border-none focus:ring-0 p-0 cursor-pointer outline-none" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                <option value="default" className="bg-white dark:bg-[#18181b]">Mới nhất</option>
-                <option value="deadline" className="bg-white dark:bg-[#18181b]">Gần Deadline</option>
-                <option value="priority" className="bg-white dark:bg-[#18181b]">Độ ưu tiên</option>
+                <option value="default">Mới nhất</option>
+                <option value="deadline">Gần Deadline</option>
+                <option value="priority">Độ ưu tiên</option>
               </select>
             </div>
-            <div className="flex bg-zinc-200/50 dark:bg-black/50 p-1.5 rounded-xl border border-zinc-200 dark:border-white/5 backdrop-blur-md flex-shrink-0">
-              <button onClick={() => setViewMode('list')} className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-300 ${viewMode === 'list' ? 'bg-white dark:bg-[#18181b] text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-white'}`}><LayoutList size={18} /> <span className="hidden sm:inline">List</span></button>
-              <button onClick={() => setViewMode('board')} className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-300 ${viewMode === 'board' ? 'bg-white dark:bg-[#18181b] text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-white'}`}><KanbanSquare size={18} /> <span className="hidden sm:inline">Board</span></button>
+            <div className="flex bg-zinc-200/50 dark:bg-black/50 p-1 rounded-xl border border-transparent dark:border-white/5 flex-shrink-0">
+              <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white dark:bg-[#18181b] text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500'}`}><LayoutList size={18} /></button>
+              <button onClick={() => setViewMode('board')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'board' ? 'bg-white dark:bg-[#18181b] text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500'}`}><KanbanSquare size={18} /></button>
             </div>
           </div>
         </div>
