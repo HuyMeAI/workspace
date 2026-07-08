@@ -157,7 +157,10 @@ export default function Home() {
       await pushTaskUpdate(task.id, { is_playing: 0, time_logs: logs });
     } else {
       // PLAY: Tạm dừng tất cả task khác trước
-      const runningTasks = await db.tasks.where('is_playing').equals(1).toArray();
+      // FIX LỖI DEXIE: Dùng .filter() thay vì .where()
+      const allTasks = await db.tasks.toArray();
+      const runningTasks = allTasks.filter((t: any) => t.is_playing === 1 || t.is_playing === true);
+      
       for (const rt of runningTasks) {
         let rtLogs = Array.isArray(rt.time_logs) ? [...rt.time_logs] : [];
         if (rtLogs.length > 0) {
