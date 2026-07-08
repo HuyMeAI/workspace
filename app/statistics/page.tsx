@@ -199,7 +199,7 @@ export default function StatisticsPage() {
                     radius={[4, 4, 0, 0]} 
                     maxBarSize={40} 
                     style={{ cursor: 'pointer' }}
-                    onClick={(data) => {
+                    onClick={(data: any) => {
                       if (data && data.tasks) handleOpenDetail(`Lịch sử ngày: ${data.name}`, data.tasks);
                     }}
                   />
