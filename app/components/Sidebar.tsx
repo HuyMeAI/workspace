@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, Folder, Plus, Calendar, Sun, Moon } from 'lucide-react';
+import { Home, Folder, Plus, Calendar, Sun, Moon, BarChart2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -24,7 +24,7 @@ export default function Sidebar({ isDarkMode, toggleTheme, onOpenModal, onShowTo
         Workspace<span className="text-[#d97706] dark:text-[#f7bd00]">.</span>
       </div>
       
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto relative z-10">
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto relative z-10 custom-scrollbar">
         <Link href="/" className={getLinkStyle('/')}>
           <Home size={20} /> Trang chủ
         </Link>
@@ -33,6 +33,11 @@ export default function Sidebar({ isDarkMode, toggleTheme, onOpenModal, onShowTo
         </Link>
         <Link href="/schedule" className={getLinkStyle('/schedule')}>
           <Calendar size={20} /> Lịch
+        </Link>
+        
+        {/* BỔ SUNG TAB THỐNG KÊ */}
+        <Link href="/statistics" className={getLinkStyle('/statistics')}>
+          <BarChart2 size={20} /> Thống kê
         </Link>
         
         <button onClick={toggleTheme} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition font-medium mt-4 border border-zinc-200 dark:border-white/5">

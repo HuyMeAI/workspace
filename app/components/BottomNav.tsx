@@ -1,10 +1,10 @@
 'use client';
 
-import { Home, Folder, Plus, Calendar, Sun, Moon } from 'lucide-react';
+import { Home, Folder, Plus, Calendar, BarChart2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-export default function BottomNav({ isDarkMode, toggleTheme, onOpenModal, onShowToast }: any) {
+export default function BottomNav({ onOpenModal }: any) {
   const pathname = usePathname(); // Lấy URL hiện tại
 
   // Hàm tự động đổi màu Icon dưới đáy
@@ -13,7 +13,7 @@ export default function BottomNav({ isDarkMode, toggleTheme, onOpenModal, onShow
     return `flex flex-col items-center p-2 transition-colors ${
       isActive 
         ? 'text-[#d97706] dark:text-[#f7bd00]' // Sáng màu vàng nếu đang active
-        : 'text-zinc-400 dark:text-zinc-500' // Màu xám mờ nếu không active
+        : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300' // Màu xám mờ nếu không active
     }`;
   };
 
@@ -28,6 +28,7 @@ export default function BottomNav({ isDarkMode, toggleTheme, onOpenModal, onShow
          <Folder size={24} />
        </Link>
        
+       {/* Nút Tạo Task Nổi */}
        <div className="relative -top-6">
           <button onClick={onOpenModal} className="bg-gradient-to-tr from-[#f7bd00] to-[#f59e0b] text-black p-4 rounded-full shadow-[0_6px_16px_rgba(247,189,0,0.4)] dark:shadow-[0_0_20px_rgba(247,189,0,0.4)] transition-all active:scale-90">
              <Plus size={28} strokeWidth={3} />
@@ -38,9 +39,10 @@ export default function BottomNav({ isDarkMode, toggleTheme, onOpenModal, onShow
          <Calendar size={24} />
        </Link>
        
-       <button onClick={toggleTheme} className="flex flex-col items-center p-2 text-zinc-400 dark:text-zinc-500 active:scale-90 transition-transform">
-         {isDarkMode ? <Sun size={24} className="text-[#f7bd00]" /> : <Moon size={24} />}
-       </button>
+       {/* ĐÃ THAY THẾ NÚT THEME BẰNG TAB THỐNG KÊ */}
+       <Link href="/statistics" className={getIconStyle('/statistics')}>
+         <BarChart2 size={24} />
+       </Link>
        
     </nav>
   );

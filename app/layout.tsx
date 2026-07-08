@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import './globals.css';
+import { Sun, Moon } from 'lucide-react';
 
 // Import các viên gạch Lego đã tách
 import Toast from './components/Toast';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import CreateTaskModal from './components/CreateTaskModal';
+import FocusModeOverlay from './components/FocusModeOverlay';
 
 // CHÚ Ý: ĐÃ XÓA KHỐI METADATA Ở ĐÂY ĐỂ TRÁNH LỖI CRASH APP
 
@@ -77,13 +79,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="flex-1 h-full overflow-y-auto pb-24 md:pb-0">
           {children}
         </main>
+        
         {/* Render Menu Đáy trên Mobile */}
         <BottomNav 
-          isDarkMode={isDarkMode} 
-          toggleTheme={toggleTheme} 
           onOpenModal={() => setIsModalOpen(true)} 
-          onShowToast={showToast} 
         />
+
+        {/* NÚT ĐỔI GIAO DIỆN NỔI DÀNH RIÊNG CHO MOBILE */}
+        <button 
+          onClick={toggleTheme} 
+          className="md:hidden fixed top-6 right-5 z-40 p-2.5 bg-white/80 dark:bg-[#18181b]/80 backdrop-blur-md border border-zinc-200 dark:border-white/10 rounded-full shadow-sm active:scale-90 transition-all text-zinc-500 dark:text-zinc-400"
+        >
+          {isDarkMode ? <Sun size={20} className="text-[#f7bd00]" /> : <Moon size={20} />}
+        </button>
 
         {/* Render Cửa sổ Tạo Task */}
         <CreateTaskModal 
@@ -91,6 +99,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           onClose={() => setIsModalOpen(false)} 
           onShowToast={showToast} 
         />
+
+        {/* HIỆU ỨNG TẬP TRUNG (FOCUS MODE OVERLAY) */}
+        <FocusModeOverlay />
 
       </body>
     </html>
