@@ -6,9 +6,17 @@ export class WorkspaceDB extends Dexie {
 
   constructor() {
     super('WorkspaceDB');
+    
+    // VERSION 2: GIỮ NGUYÊN ĐỂ DEXIE BIẾT CẤU TRÚC CŨ LÀ GÌ
     this.version(2).stores({
       tasks: '++id, title, description, tag, priority, status, start_datetime, end_datetime, tg_notified, is_synced',
-      folders: '++id, name, calendar_id, is_readonly' // Khai báo bảng mới
+      folders: '++id, name, calendar_id, is_readonly'
+    });
+
+    // VERSION 3: BẢN NÂNG CẤP MỚI NHẤT BỔ SUNG 'is_playing' ĐỂ CHO PHÉP TÌM KIẾM
+    this.version(3).stores({
+      tasks: '++id, title, description, tag, priority, status, start_datetime, end_datetime, tg_notified, is_synced, is_playing',
+      folders: '++id, name, calendar_id, is_readonly' 
     });
 
     // Tự động bơm dữ liệu mặc định của bạn vào lần đầu chạy app
