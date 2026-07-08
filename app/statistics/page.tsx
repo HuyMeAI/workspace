@@ -125,10 +125,19 @@ export default function StatisticsPage() {
       tasks: Object.values(tagDataMap[tag].tasksMap).sort((a, b) => b.duration - a.duration)
     })).sort((a,b) => b.value - a.value);
 
-    const barData = Array.from(barDataMap.values()).map(b => ({
-      ...b,
-      tasks: Object.values(b.tasksMap).sort((a: any, b: any) => b.duration - a.duration)
-    }));
+    // XỬ LÝ LÀM TRÒN SỐ TẬN GỐC ĐỂ CHỐNG LỖI TYPESCRIPT Ở TOOLTIP
+    const barData = Array.from(barDataMap.values()).map(b => {
+      const formattedB: any = { ...b };
+      Array.from(uniqueTags).forEach(tag => {
+        if (formattedB[tag]) {
+          formattedB[tag] = Math.round(formattedB[tag] * 10) / 10;
+        }
+      });
+      return {
+        ...formattedB,
+        tasks: Object.values(b.tasksMap).sort((a: any, b: any) => b.duration - a.duration)
+      };
+    });
 
     const allProcessedTasks = Object.values(allTasksMap).sort((a, b) => b.duration - a.duration);
     const totalMinutes = pieData.reduce((sum, item) => sum + item.value, 0);
@@ -252,16 +261,24 @@ export default function StatisticsPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.1)" vertical={false} />
-                  <XAxis dataKey="name" stroke="#71717a" fontSize={11} tickLine={false} axisLine={false} dy={10} />
-                  <YAxis stroke="#71717a" fontSize={11} tickLine={false} axisLine={false} dx={-10} />
-                  <Tooltip cursor={{ fill: 'rgba(128,128,128,0.05)' }} contentStyle={{ backgroundColor: 'rgba(24, 24, 27, 0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} itemStyle={{ fontWeight: 'bold' }} />
                   
-                  {/* TẠO CÁC LỚP XẾP CHỒNG DỰA TRÊN DANH SÁCH THƯ MỤC CÓ THỰC */}
+                  {/* ÉP HIỂN THỊ ĐỦ THÁNG 11 VỚI INTERVAL=0 */}
+                  <XAxis dataKey="name" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} dy={10} interval={0} />
+                  <YAxis stroke="#71717a" fontSize={11} tickLine={false} axisLine={false} dx={-10} />
+                  
+                  {/* THÊM TYPE 'ANY' VÀO FORMATTER ĐỂ TRÁNH LỖI TYPESCRIPT MÀ VẪN HIỆN CHỮ PHÚT ĐẸP */}
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(128,128,128,0.05)' }} 
+                    contentStyle={{ backgroundColor: 'rgba(24, 24, 27, 0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} 
+                    itemStyle={{ fontWeight: 'bold' }} 
+                    formatter={(value: any, name: any) => [`${value} phút`, name]}
+                  />
+                  
                   {uniqueTags.map((tag, idx) => (
                     <Bar 
                       key={tag}
                       dataKey={tag} 
-                      stackId="a" // Điểm mấu chốt để tạo Stacked Bar
+                      stackId="a" 
                       fill={BASE_COLORS[idx % BASE_COLORS.length]} 
                       maxBarSize={40} 
                       style={{ cursor: 'pointer' }}
@@ -307,7 +324,7 @@ export default function StatisticsPage() {
                       <Cell key={`cell-${index}`} fill={BASE_COLORS[index % BASE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => `${value} phút`} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }} />
+                  <Tooltip formatter={(value: any) => `${value} phút`} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }} />
                   <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px', paddingTop: '16px', color: '#71717a' }} />
                 </PieChart>
               </ResponsiveContainer>
