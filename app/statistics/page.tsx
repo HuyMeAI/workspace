@@ -187,7 +187,7 @@ export default function StatisticsPage() {
                     align="center"
                     iconType="circle"
                     iconSize={8}
-                    wrapperStyle={{ fontSize: '12px', paddingClassName: 'pt-4', color: '#71717a' }}
+                    wrapperStyle={{ fontSize: '12px', paddingTop: '16px', color: '#71717a' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
