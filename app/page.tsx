@@ -16,7 +16,11 @@ const LiveTimer = ({ isPlaying, logs = [] }: { isPlaying: boolean, logs: any[] }
   useEffect(() => {
     const calculateTotal = () => {
       let total = 0;
-      logs.forEach(log => {
+      // CƠ CHẾ PHÒNG VỆ: Ép logs thành mảng rỗng nếu nó bị null/undefined
+      const safeLogs = Array.isArray(logs) ? logs : []; 
+      
+      safeLogs.forEach(log => {
+        if (!log) return; // Bỏ qua nếu log rỗng
         const start = new Date(log.start).getTime();
         const end = log.end ? new Date(log.end).getTime() : new Date().getTime();
         total += Math.floor((end - start) / 1000);
@@ -45,7 +49,6 @@ const LiveTimer = ({ isPlaying, logs = [] }: { isPlaying: boolean, logs: any[] }
     </span>
   );
 };
-
 
 export default function Home() {
   const [isMounted, setIsMounted] = useState(false);
@@ -142,12 +145,16 @@ export default function Home() {
     }
 
     const now = new Date().toISOString();
+    // LUÔN LUÔN ÉP KIỂU MẢNG ĐỂ TRÁNH NULL
     let logs = Array.isArray(task.time_logs) ? [...task.time_logs] : [];
 
     if (task.is_playing) {
       // PAUSE: Đóng log cuối cùng
-      if (logs.length > 0 && !logs[logs.length - 1].end) {
-        logs[logs.length - 1].end = now;
+      if (logs.length > 0) {
+        let lastLog = logs[logs.length - 1];
+        if (lastLog && !lastLog.end) {
+          lastLog.end = now;
+        }
       }
       await pushTaskUpdate(task.id, { is_playing: 0, time_logs: logs });
     } else {
@@ -155,8 +162,11 @@ export default function Home() {
       const runningTasks = await db.tasks.where('is_playing').equals(1).toArray();
       for (const rt of runningTasks) {
         let rtLogs = Array.isArray(rt.time_logs) ? [...rt.time_logs] : [];
-        if (rtLogs.length > 0 && !rtLogs[rtLogs.length - 1].end) {
-          rtLogs[rtLogs.length - 1].end = now;
+        if (rtLogs.length > 0) {
+          let rtLastLog = rtLogs[rtLogs.length - 1];
+          if (rtLastLog && !rtLastLog.end) {
+            rtLastLog.end = now;
+          }
         }
         await pushTaskUpdate(rt.id, { is_playing: 0, time_logs: rtLogs });
       }
@@ -181,8 +191,11 @@ export default function Home() {
     
     if (newStatus === 'done' && isPlaying) {
       isPlaying = 0;
-      if (logs.length > 0 && !logs[logs.length - 1].end) {
-        logs[logs.length - 1].end = new Date().toISOString();
+      if (logs.length > 0) {
+        let lastLog = logs[logs.length - 1];
+        if (lastLog && !lastLog.end) {
+          lastLog.end = new Date().toISOString();
+        }
       }
     }
 
