@@ -10,17 +10,15 @@ import Toast from './components/Toast';
 import { LayoutList, KanbanSquare, Circle, CheckCircle2, Flag, Clock, Trash2, ArrowUpDown, Cloud, CloudOff, RefreshCw, Play, Pause, Timer } from 'lucide-react';
 
 // MICRO-COMPONENT: BỘ ĐẾM GIỜ ĐỘC LẬP (Tránh giật lag toàn trang)
-const LiveTimer = ({ isPlaying, logs = [] }: { isPlaying: boolean, logs: any[] }) => {
+const LiveTimer = ({ isPlaying, logs }: { isPlaying: boolean, logs: any[] }) => {
   const [totalSeconds, setTotalSeconds] = useState(0);
 
   useEffect(() => {
     const calculateTotal = () => {
       let total = 0;
-      // CƠ CHẾ PHÒNG VỆ: Ép logs thành mảng rỗng nếu nó bị null/undefined
-      const safeLogs = Array.isArray(logs) ? logs : []; 
-      
-      safeLogs.forEach(log => {
-        if (!log) return; // Bỏ qua nếu log rỗng
+      // Kỹ thuật optional chaining (?.) và fallback (||) cực mạnh của ES6
+      (logs || []).forEach(log => {
+        if (!log || !log.start) return; 
         const start = new Date(log.start).getTime();
         const end = log.end ? new Date(log.end).getTime() : new Date().getTime();
         total += Math.floor((end - start) / 1000);
