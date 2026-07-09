@@ -3,8 +3,11 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import db from '@/app/db/workspaceDB';
+import { syncService } from '@/app/services/syncService'; // IMPORT SYNC SERVICE
 import { Folder, Settings, Plus, Trash2, Info, X, Clock, GripVertical, Save, Edit3 } from 'lucide-react';
-import EditTaskModal from '../components/EditTaskModal'; // Đảm bảo import đúng đường dẫn
+import EditTaskModal from '../components/EditTaskModal'; 
+
+const API_URL = 'https://api.tranduchuy.com/api';
 
 export default function FoldersPage() {
   const [activeFolder, setActiveFolder] = useState<string>('Tất cả');
@@ -20,19 +23,17 @@ export default function FoldersPage() {
 
   const [editingTask, setEditingTask] = useState<any>(null);
 
-  // State cho Kéo Thả
   const [draggedId, setDraggedId] = useState<number | null>(null);
 
-  // Lấy dữ liệu và sắp xếp theo trường 'order'
   const folders = useLiveQuery(() => db.folders.toArray()) || [];
   const sortedFolders = folders.sort((a, b) => (a.order || 0) - (b.order || 0));
   const visibleFolders = sortedFolders.filter(f => !f.is_readonly); 
   
   const tasks = useLiveQuery(() => db.tasks.toArray()) || [];
-  // Lọc task: Nếu là "Tất cả" thì lấy mọi task TRỪ "Ngày lễ". Nếu là thư mục khác thì lọc theo tag đó.
   const filteredTasks = activeFolder === 'Tất cả' 
     ? tasks.filter(t => t.tag !== 'Ngày lễ') 
     : tasks.filter(t => t.tag === activeFolder);
+
   // ---- HELPER FUNCTIONS ----
   const translatePriority = (p: string) => {
     switch(p) {
@@ -43,7 +44,7 @@ export default function FoldersPage() {
     }
   };
 
- const getTimeRemaining = (startStr: string | null, endStr: string | null) => {
+  const getTimeRemaining = (startStr: string | null, endStr: string | null) => {
     if (!startStr) return 'Chưa xếp lịch';
     
     const now = new Date().getTime();
@@ -77,36 +78,100 @@ export default function FoldersPage() {
     return `${prefix} ${timeText}`;
   };
 
-  // ---- LOGIC THƯ MỤC ----
+  // =========================================================================
+  // LOGIC THƯ MỤC CHUẨN OFFLINE-FIRST (CÔNG THỨC 3 BƯỚC)
+  // =========================================================================
+  
+  // 1. TẠO MỚI THƯ MỤC
   const handleSaveNewFolder = async () => {
     if (!addName.trim()) return alert('Vui lòng nhập tên thư mục!');
-    // Thêm order = Date.now() để thư mục mới luôn nằm dưới cùng
-    await db.folders.add({ name: addName.trim(), calendar_id: addId.trim(), is_readonly: 0, order: Date.now() });
+    
+    // BƯỚC 1: Tạo ID ảo và lưu ngay vào Local (is_synced: 0)
+    const newFolder = { 
+      id: Date.now(), // ID ảo để đánh dấu chưa đồng bộ
+      name: addName.trim(), 
+      calendar_id: addId.trim(), 
+      is_readonly: 0, 
+      order: Date.now(),
+      is_synced: 0 
+    };
+    
+    await db.folders.add(newFolder);
     setIsAddModalOpen(false); setAddName(''); setAddId('');
+
+    // BƯỚC 2: Gọi API đẩy lên Server ngay lập tức
+    if (navigator.onLine) {
+      try {
+        const res = await fetch(`${API_URL}/folders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(newFolder)
+        });
+        if (res.ok) await db.folders.update(newFolder.id, { is_synced: 1 });
+      } catch (error) {}
+    }
   };
 
   const startEditing = (f: any) => { setEditingFolderId(f.id); setEditName(f.name); setEditId(f.calendar_id); };
 
+  // 2. CẬP NHẬT THƯ MỤC
   const handleSaveEdit = async (id: number, currentName: string) => {
     if (!editName.trim()) return setEditingFolderId(null);
-    await db.folders.update(id, { name: editName.trim(), calendar_id: editId.trim() });
+    
+    // BƯỚC 1: Lưu thay đổi vào Local
+    await db.folders.update(id, { name: editName.trim(), calendar_id: editId.trim(), is_synced: 0 });
+    
+    // BƯỚC 2: Gọi API (Sửa thì dùng PUT)
+    if (navigator.onLine && id < 1000000) { // Chỉ PUT nếu ID là ID thật của DB Server
+      try {
+        const res = await fetch(`${API_URL}/folders/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ name: editName.trim(), calendar_id: editId.trim() })
+        });
+        if (res.ok) await db.folders.update(id, { is_synced: 1 });
+      } catch(e) {}
+    } else if (navigator.onLine && id >= 1000000) {
+      // Nếu là thư mục vừa tạo offline, kích hoạt Push tổng
+      syncService.pushToServer();
+    }
+
+    // ĐỒNG BỘ: Sửa luôn tên Tag của các Task nằm trong thư mục này
     if (editName.trim() !== currentName) {
       const tasksToUpdate = await db.tasks.where('tag').equals(currentName).toArray();
-      for (const t of tasksToUpdate) await db.tasks.update(t.id, { tag: editName.trim() });
+      for (const t of tasksToUpdate) {
+        await db.tasks.update(t.id, { tag: editName.trim(), is_synced: 0 });
+      }
       if (activeFolder === currentName) setActiveFolder(editName.trim());
+      // Kích hoạt SyncService để đẩy tất cả task vừa bị đổi tên lên Server
+      if (navigator.onLine) syncService.pushToServer();
     }
+    
     setEditingFolderId(null);
   };
 
-  // ---- LOGIC KÉO THẢ (DRAG & DROP) ----
-  const handleDragStart = (e: any, id: number) => {
+  // 3. XÓA THƯ MỤC
+  const handleDeleteFolder = async (id: number) => {
+    if(!confirm('Bạn có chắc chắn muốn xóa thư mục này?')) return;
+    
+    await db.folders.delete(id);
+    
+    if (navigator.onLine && id < 1000000) {
+      try {
+        await fetch(`${API_URL}/folders/${id}`, { method: 'DELETE' });
+      } catch (error) {}
+    }
+  };
+
+  // 4. KÉO THẢ SẮP XẾP THỨ TỰ (UPDATE HÀNG LOẠT)
+  const handleDragStart = (e: React.DragEvent, id: number) => {
     setDraggedId(id);
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e: any) => e.preventDefault(); // Cần thiết để cho phép Drop
+  const handleDragOver = (e: React.DragEvent) => e.preventDefault(); 
 
-  const handleDrop = async (e: any, targetId: number) => {
+  const handleDrop = async (e: React.DragEvent, targetId: number) => {
     e.preventDefault();
     if (!draggedId || draggedId === targetId) return;
 
@@ -114,16 +179,20 @@ export default function FoldersPage() {
     const draggedIdx = newFolders.findIndex(f => f.id === draggedId);
     const targetIdx = newFolders.findIndex(f => f.id === targetId);
 
-    // Cắt phần tử đang kéo và chèn vào vị trí đích
     const [draggedItem] = newFolders.splice(draggedIdx, 1);
     newFolders.splice(targetIdx, 0, draggedItem);
 
-    // Cập nhật lại số thứ tự (order) vào DB
+    // Cập nhật Local toàn bộ danh sách vừa bị đổi vị trí
     for (let i = 0; i < newFolders.length; i++) {
-      await db.folders.update(newFolders[i].id, { order: i });
+      await db.folders.update(newFolders[i].id, { order: i, is_synced: 0 });
     }
     setDraggedId(null);
+
+    // Kích hoạt Sync tổng để đẩy chuỗi vị trí mới này lên Server
+    if (navigator.onLine) syncService.pushToServer();
   };
+
+  // =========================================================================
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto h-full flex flex-col relative">
@@ -163,7 +232,6 @@ export default function FoldersPage() {
                     <span className={`font-bold ${task.status === 'done' ? 'line-through text-zinc-500' : 'text-zinc-800 dark:text-zinc-200'}`}>{task.title}</span>
                 </div>
                 
-                {/* Đã loại bỏ Tag, hiển thị Thời gian và Ưu tiên (Tiếng Việt) */}
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 bg-white dark:bg-white/5 px-2.5 py-1 rounded-md border border-zinc-200 dark:border-white/5">
                     <Clock size={14} /> {getTimeRemaining(task.start_datetime, task.end_datetime)}
@@ -179,7 +247,7 @@ export default function FoldersPage() {
         </div>
       </div>
 
-      {/* MODAL CÀI ĐẶT THƯ MỤC (CÓ KÉO THẢ) */}
+      {/* MODAL CÀI ĐẶT THƯ MỤC */}
       {isSettingsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-[#18181b] w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
@@ -194,7 +262,7 @@ export default function FoldersPage() {
               {visibleFolders.map(f => (
                 <div 
                   key={f.id} 
-                  draggable={editingFolderId !== f.id} // Không cho kéo nếu đang gõ chữ sửa
+                  draggable={editingFolderId !== f.id} 
                   onDragStart={(e) => handleDragStart(e, f.id)}
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, f.id)}
@@ -221,7 +289,7 @@ export default function FoldersPage() {
                     ) : (
                         <button onClick={() => startEditing(f)} className="px-4 py-2 bg-zinc-200 dark:bg-white/10 text-zinc-800 dark:text-white rounded-xl text-sm font-bold hover:bg-[#f7bd00] hover:text-black transition flex items-center gap-1"><Edit3 size={16}/> Sửa</button>
                     )}
-                    <button onClick={() => { if(confirm('Chắc chắn xóa?')) db.folders.delete(f.id) }} className="p-2 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition"><Trash2 size={18}/></button>
+                    <button onClick={() => handleDeleteFolder(f.id)} className="p-2 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition"><Trash2 size={18}/></button>
                   </div>
                 </div>
               ))}
@@ -257,12 +325,16 @@ export default function FoldersPage() {
         </div>
       )}
 
-      {/* RENDER MODAL SỬA TASK. Thêm isOpen={true} để ép modal hiển thị */}
+      {/* RENDER MODAL SỬA TASK */}
       {editingTask && (
         <EditTaskModal 
           isOpen={true} 
           task={editingTask} 
           onClose={() => setEditingTask(null)} 
+          onUpdateSuccess={() => {
+            setEditingTask(null);
+            // Có thể thêm showToast('Thành công') nếu muốn
+          }}
         />
       )}
     </div>

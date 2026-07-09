@@ -9,15 +9,32 @@ import EditTaskModal from './components/EditTaskModal';
 import Toast from './components/Toast';
 import { LayoutList, KanbanSquare, Circle, CheckCircle2, Flag, Clock, Trash2, ArrowUpDown, Cloud, CloudOff, RefreshCw, Play, Pause, Timer } from 'lucide-react';
 
-// MICRO-COMPONENT: BỘ ĐẾM GIỜ ĐỘC LẬP (Tránh giật lag toàn trang)
-const LiveTimer = ({ isPlaying, logs }: { isPlaying: boolean, logs: any[] }) => {
+const API_URL = 'https://api.tranduchuy.com/api';
+
+// KHAI BÁO KIỂU DỮ LIỆU ĐỂ TYPESCRIPT KHÔNG BÁO LỖI "ANY"
+interface TaskItem {
+  id: number;
+  title?: string;
+  description?: string;
+  status: string;
+  tag?: string;
+  priority: string;
+  start_datetime?: string | null;
+  end_datetime?: string | null;
+  is_playing?: boolean | number;
+  time_logs?: { start: string; end: string | null }[];
+  is_synced?: number;
+  [key: string]: unknown;
+}
+
+// MICRO-COMPONENT: BỘ ĐẾM GIỜ ĐỘC LẬP
+const LiveTimer = ({ isPlaying, logs }: { isPlaying: boolean | number | undefined, logs: unknown[] | undefined }) => {
   const [totalSeconds, setTotalSeconds] = useState(0);
 
   useEffect(() => {
     const calculateTotal = () => {
       let total = 0;
-      // Kỹ thuật optional chaining (?.) và fallback (||) cực mạnh của ES6
-      (logs || []).forEach(log => {
+      (logs as { start: string; end: string | null }[] || []).forEach(log => {
         if (!log || !log.start) return; 
         const start = new Date(log.start).getTime();
         const end = log.end ? new Date(log.end).getTime() : new Date().getTime();
@@ -27,7 +44,7 @@ const LiveTimer = ({ isPlaying, logs }: { isPlaying: boolean, logs: any[] }) => 
     };
 
     calculateTotal();
-    let interval: any;
+    let interval: ReturnType<typeof setInterval>;
     if (isPlaying) {
       interval = setInterval(() => setTotalSeconds(prev => prev + 1), 1000);
     }
@@ -58,7 +75,7 @@ export default function Home() {
 
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as 'success' | 'error' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, taskId: 0 });
-  const [editModal, setEditModal] = useState({ isOpen: false, task: null as any });
+  const [editModal, setEditModal] = useState({ isOpen: false, task: null as TaskItem | null });
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ isOpen: true, message, type });
@@ -67,8 +84,8 @@ export default function Home() {
 
   const rawTasks = useLiveQuery(() => db.tasks.toArray()) || [];
   const tasks = [...rawTasks]
-    .filter((t: any) => t.tag !== 'Ngày lễ') 
-    .sort((a: any, b: any) => {
+    .filter((t: TaskItem) => t.tag !== 'Ngày lễ') 
+    .sort((a: TaskItem, b: TaskItem) => {
       if (sortBy === 'deadline') {
         if (!a.end_datetime) return 1;
         if (!b.end_datetime) return -1;
@@ -112,30 +129,40 @@ export default function Home() {
     setIsSyncing(false);
   };
 
-  // ----------------------------------------------------
-  // LOGIC TIME TRACKING (PLAY/PAUSE)
-  // ----------------------------------------------------
-  const pushTaskUpdate = async (id: number, updatedData: any) => {
-    await db.tasks.update(id, updatedData);
-    if (isOnline) {
-      try {
-        const taskToUpdate = await db.tasks.get(id);
-        if (taskToUpdate) {
-          await fetch(`https://api.tranduchuy.com/api/tasks/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify(taskToUpdate)
-          });
+  // =========================================================================
+  // LOGIC TIME TRACKING VÀ UPDATE CHUẨN CÔNG THỨC 3 BƯỚC OFFLINE-FIRST
+  // =========================================================================
+  const pushTaskUpdate = async (id: number, updatedData: Partial<TaskItem>) => {
+    // 1. Lưu Local & Đánh dấu chưa đồng bộ để UI mượt ngay lập tức
+    await db.tasks.update(id, { ...updatedData, is_synced: 0 });
+    
+    // 2. Gửi API lên Server
+    if (navigator.onLine) {
+      if (id < 1000000) { // Nếu là ID thật từ Database Server
+        try {
+          const taskToUpdate = await db.tasks.get(id);
+          if (taskToUpdate) {
+            const res = await fetch(`${API_URL}/tasks/${id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify(taskToUpdate)
+            });
+            // 3. Thành công thì đổi cờ is_synced thành 1
+            if (res.ok) {
+              await db.tasks.update(id, { is_synced: 1 });
+            }
+          }
+        } catch (error) {
+           // Lỗi mạng đột ngột thì kệ, syncService sẽ quét lại sau
         }
-      } catch (error) {
-        await db.tasks.update(id, { is_synced: 0 });
+      } else {
+        // Task vừa tạo offline (có ID ảo), ra lệnh đẩy mảng unsyncedTasks
+        syncService.pushToServer();
       }
-    } else {
-      await db.tasks.update(id, { is_synced: 0 });
     }
   };
 
-  const handleTogglePlay = async (e: React.MouseEvent, task: any) => {
+  const handleTogglePlay = async (e: React.MouseEvent, task: TaskItem) => {
     e.stopPropagation();
     if (task.status === 'done') {
       showToast('Công việc đã hoàn thành!', 'error');
@@ -143,31 +170,25 @@ export default function Home() {
     }
 
     const now = new Date().toISOString();
-    // LUÔN LUÔN ÉP KIỂU MẢNG ĐỂ TRÁNH NULL
-    let logs = Array.isArray(task.time_logs) ? [...task.time_logs] : [];
+    const logs = Array.isArray(task.time_logs) ? [...task.time_logs] : [];
 
     if (task.is_playing) {
-      // PAUSE: Đóng log cuối cùng
+      // PAUSE
       if (logs.length > 0) {
         let lastLog = logs[logs.length - 1];
-        if (lastLog && !lastLog.end) {
-          lastLog.end = now;
-        }
+        if (lastLog && !lastLog.end) lastLog.end = now;
       }
       await pushTaskUpdate(task.id, { is_playing: 0, time_logs: logs });
     } else {
       // PLAY: Tạm dừng tất cả task khác trước
-      // FIX LỖI DEXIE: Dùng .filter() thay vì .where()
       const allTasks = await db.tasks.toArray();
-      const runningTasks = allTasks.filter((t: any) => t.is_playing === 1 || t.is_playing === true);
+      const runningTasks = allTasks.filter(t => t.is_playing === 1 || t.is_playing === true);
       
       for (const rt of runningTasks) {
         let rtLogs = Array.isArray(rt.time_logs) ? [...rt.time_logs] : [];
         if (rtLogs.length > 0) {
           let rtLastLog = rtLogs[rtLogs.length - 1];
-          if (rtLastLog && !rtLastLog.end) {
-            rtLastLog.end = now;
-          }
+          if (rtLastLog && !rtLastLog.end) rtLastLog.end = now;
         }
         await pushTaskUpdate(rt.id, { is_playing: 0, time_logs: rtLogs });
       }
@@ -182,11 +203,10 @@ export default function Home() {
     }
   };
 
-  const toggleTaskStatus = async (e: React.MouseEvent, id: number, currentStatus: string, task: any) => {
+  const toggleTaskStatus = async (e: React.MouseEvent, id: number, currentStatus: string, task: TaskItem) => {
     e.stopPropagation();
     const newStatus = currentStatus === 'done' ? 'todo' : 'done';
     
-    // Nếu bấm Done mà task đang chạy -> Ép Pause lại
     let logs = Array.isArray(task.time_logs) ? [...task.time_logs] : [];
     let isPlaying = task.is_playing;
     
@@ -194,9 +214,7 @@ export default function Home() {
       isPlaying = 0;
       if (logs.length > 0) {
         let lastLog = logs[logs.length - 1];
-        if (lastLog && !lastLog.end) {
-          lastLog.end = new Date().toISOString();
-        }
+        if (lastLog && !lastLog.end) lastLog.end = new Date().toISOString();
       }
     }
 
@@ -213,15 +231,21 @@ export default function Home() {
       const idToDelete = confirmDialog.taskId;
       setConfirmDialog({ isOpen: false, taskId: 0 });
       setEditModal({ isOpen: false, task: null });
+      
+      // 1. Xóa ở Local trước
       await db.tasks.delete(idToDelete);
       showToast('Đã xóa công việc thành công!');
-      if (isOnline) {
-        try { await fetch(`https://api.tranduchuy.com/api/tasks/${idToDelete}`, { method: 'DELETE' }); } catch (error) {}
+      
+      // 2. Gọi API xóa Server
+      if (navigator.onLine && idToDelete < 1000000) {
+        try { 
+          await fetch(`${API_URL}/tasks/${idToDelete}`, { method: 'DELETE' }); 
+        } catch (error) {}
       }
     }
   };
 
-  const openEditModal = (task: any) => setEditModal({ isOpen: true, task });
+  const openEditModal = (task: TaskItem) => setEditModal({ isOpen: true, task });
 
   const handleDragStart = (e: React.DragEvent, id: number) => e.dataTransfer.setData('text/plain', id.toString());
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
@@ -233,13 +257,14 @@ export default function Home() {
       await pushTaskUpdate(id, { status: targetStatus });
     }
   };
+  // =========================================================================
 
   const today = new Date();
   const currentHour = today.getHours();
   let greetingPrefix = currentHour < 12 ? 'Chào buổi sáng,' : currentHour < 18 ? 'Buổi chiều vui vẻ nhé,' : 'Buổi tối thật "chill" nha,';
   const currentDateFormatted = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
 
-  const getTimeStatus = (start: string | null, end: string | null, status: string) => {
+  const getTimeStatus = (start: string | null | undefined, end: string | null | undefined, status: string) => {
     if (status === 'done') return { text: 'Đã hoàn thành', className: 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-500/10 border-transparent' };
     if (!start) return { text: 'Chưa xếp lịch', className: 'text-zinc-400 bg-zinc-100 dark:text-zinc-500 dark:bg-white/5 border-transparent' };
     
@@ -273,9 +298,9 @@ export default function Home() {
     return { text: `${prefix} ${timeText}`, className: d === 0 ? 'text-[#d97706] bg-[#f7bd00]/15 border-[#f7bd00]/30 dark:text-[#f7bd00] dark:bg-[#f7bd00]/10 dark:border-[#f7bd00]/20' : 'text-zinc-500 bg-zinc-100 border-zinc-200 dark:text-zinc-400 dark:bg-white/5 dark:border-transparent' };
   };
 
-  const getTagStyle = (tag: string) => tag === 'Flyday Media' ? 'bg-[#f7bd00]/20 text-[#92400e] border-[#f7bd00]/30 dark:bg-[#f7bd00]/10 dark:text-[#f7bd00] dark:border-[#f7bd00]/20' : tag === 'Gia đình' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20';
-  const getPriorityColor = (p: string) => p === 'urgent' ? 'text-red-500' : p === 'high' ? 'text-[#d97706] dark:text-[#f7bd00]' : 'text-blue-500';
-  const getPriorityLabel = (p: string) => p === 'urgent' ? 'Ưu tiên: Khẩn cấp' : p === 'high' ? 'Ưu tiên: Cao' : p === 'medium' ? 'Ưu tiên: Vừa' : 'Không ưu tiên';
+  const getTagStyle = (tag: string | undefined) => tag === 'Flyday Media' ? 'bg-[#f7bd00]/20 text-[#92400e] border-[#f7bd00]/30 dark:bg-[#f7bd00]/10 dark:text-[#f7bd00] dark:border-[#f7bd00]/20' : tag === 'Gia đình' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20';
+  const getPriorityColor = (p: string | undefined) => p === 'urgent' ? 'text-red-500' : p === 'high' ? 'text-[#d97706] dark:text-[#f7bd00]' : 'text-blue-500';
+  const getPriorityLabel = (p: string | undefined) => p === 'urgent' ? 'Ưu tiên: Khẩn cấp' : p === 'high' ? 'Ưu tiên: Cao' : p === 'medium' ? 'Ưu tiên: Vừa' : 'Không ưu tiên';
 
   const columns = [
     { id: 'todo', title: 'CẦN LÀM', dot: 'bg-zinc-300 dark:bg-zinc-500' },
@@ -300,13 +325,13 @@ export default function Home() {
             {greetingPrefix} <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#d97706] to-[#b45309] dark:from-[#f7bd00] dark:to-[#f59e0b] truncate">Huy!</span> 👋
           </h1>
         </div>
-        <p className="text-sm md:text-base text-zinc-500 dark:text-zinc-400 mb-5 md:mb-6 font-medium">Bạn có <span className="text-[#d97706] dark:text-[#f7bd00] font-bold">{tasks.filter((t:any) => t.status !== 'done').length} công việc</span> quan trọng hôm nay.</p>
+        <p className="text-sm md:text-base text-zinc-500 dark:text-zinc-400 mb-5 md:mb-6 font-medium">Bạn có <span className="text-[#d97706] dark:text-[#f7bd00] font-bold">{tasks.filter((t:TaskItem) => t.status !== 'done').length} công việc</span> quan trọng hôm nay.</p>
         
         {/* THANH CÔNG CỤ: NGÀY THÁNG, ĐỒNG BỘ, SẮP XẾP */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-white/[0.02] p-3 md:p-0 rounded-2xl md:bg-transparent md:dark:bg-transparent border md:border-none border-zinc-200 dark:border-white/5 shadow-sm md:shadow-none">
           <div className="flex items-center justify-between w-full sm:w-auto">
             <h2 className="text-lg md:text-xl font-bold tracking-wide text-zinc-800 dark:text-zinc-100">{currentDateFormatted}</h2>
-            {/* NÚT ĐỒNG BỘ ĐÃ ĐƯỢC DỜI XUỐNG ĐÂY CHO HỢP LOGIC & KHÔNG GIAN */}
+            {/* NÚT ĐỒNG BỘ */}
             <button onClick={manualSync} disabled={!isOnline || isSyncing} className={`md:ml-4 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${isOnline ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20' : 'bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20'}`}>
               {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : isOnline ? <Cloud size={14} /> : <CloudOff size={14} />}
               <span>{isSyncing ? 'Đang tải...' : isOnline ? 'Đồng bộ' : 'Offline'}</span>
@@ -340,7 +365,7 @@ export default function Home() {
           
           {viewMode === 'list' && (
             <div className="space-y-3 overflow-y-auto h-full pb-20 custom-scrollbar pr-2">
-              {tasks.map((task: any) => {
+              {tasks.map((task: TaskItem) => {
                 const timeStatus = getTimeStatus(task.start_datetime, task.end_datetime, task.status);
                 const isDone = task.status === 'done';
                 const isInProgress = task.status === 'in_progress';
@@ -390,11 +415,11 @@ export default function Home() {
                     <div className="flex items-center gap-3">
                       <div className={`w-3 h-3 rounded-full ${column.dot}`}></div>
                       <h3 className="font-extrabold text-sm text-zinc-800 dark:text-zinc-200 tracking-wider">{column.title}</h3>
-                      <span className="bg-white dark:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs font-bold px-2.5 py-0.5 rounded-full border border-zinc-200 dark:border-transparent">{tasks.filter((t: any) => t.status === column.id).length}</span>
+                      <span className="bg-white dark:bg-white/10 text-zinc-700 dark:text-zinc-300 text-xs font-bold px-2.5 py-0.5 rounded-full border border-zinc-200 dark:border-transparent">{tasks.filter((t: TaskItem) => t.status === column.id).length}</span>
                     </div>
                   </div>
                   <div className="flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-1 flex-1 min-h-[200px]">
-                    {tasks.filter((t: any) => t.status === column.id).map((task: any) => {
+                    {tasks.filter((t: TaskItem) => t.status === column.id).map((task: TaskItem) => {
                       const timeStatus = getTimeStatus(task.start_datetime, task.end_datetime, task.status);
                       return (
                         <div key={task.id} draggable onDragStart={(e) => handleDragStart(e, task.id)} onClick={() => openEditModal(task)} className={`group/card bg-white dark:bg-[#18181b] p-5 rounded-2xl cursor-grab transition-all duration-300 border shadow-sm active:cursor-grabbing ${task.is_playing ? 'border-emerald-500/50 shadow-[0_8px_24px_rgba(16,185,129,0.15)] ring-2 ring-emerald-500/20' : task.status === 'in_progress' ? 'border-[#f7bd00]/50 shadow-[0_8px_24px_rgba(247,189,0,0.12)]' : 'border-zinc-200 dark:border-white/5 hover:border-[#f7bd00]/40'}`}>
@@ -429,20 +454,22 @@ export default function Home() {
         </div>
       )}
 
-      <EditTaskModal 
-        isOpen={editModal.isOpen} 
-        task={editModal.task} 
-        onClose={() => setEditModal({ isOpen: false, task: null })} 
-        onUpdateSuccess={() => { 
-          setEditModal({ isOpen: false, task: null }); 
-          showToast('Cập nhật thành công!'); 
-          if (isOnline) syncService.pushToServer(); 
-        }} 
-        onDeleteRequest={(id: number) => {
-           setEditModal({ isOpen: false, task: null });
-           setConfirmDialog({ isOpen: true, taskId: id });
-        }} 
-      />
+      {editModal.isOpen && editModal.task && (
+        <EditTaskModal 
+          isOpen={editModal.isOpen} 
+          task={editModal.task} 
+          onClose={() => setEditModal({ isOpen: false, task: null })} 
+          onUpdateSuccess={() => { 
+            setEditModal({ isOpen: false, task: null }); 
+            showToast('Cập nhật thành công!'); 
+            if (navigator.onLine) syncService.pushToServer(); 
+          }} 
+          onDeleteRequest={(id: number) => {
+             setEditModal({ isOpen: false, task: null });
+             setConfirmDialog({ isOpen: true, taskId: id });
+          }} 
+        />
+      )}
     </div>
   );
 }
