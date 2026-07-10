@@ -2,7 +2,6 @@ import db from '../db/workspaceDB';
 
 const API_URL = 'https://api.tranduchuy.com/api';
 
-// 1. ĐỊNH NGHĨA CÁC INTERFACE ĐỂ KHỬ SẠCH LỖI TYPESCRIPT
 interface LocalFolder {
   id: number;
   name: string;
@@ -49,7 +48,8 @@ export const syncService = {
     if (!navigator.onLine) return; 
 
     try {
-      const unsyncedFolders = await db.folders.where('is_synced').equals(0).toArray() as LocalFolder[];
+      // SỬ DỤNG .filter() ĐỂ GOM CẢ NHỮNG FOLDER CŨ CHƯA CÓ CỜ IS_SYNCED (BỊ UNDEFINED)
+      const unsyncedFolders = await db.folders.filter(f => f.is_synced !== 1).toArray() as LocalFolder[];
       for (const folder of unsyncedFolders) {
         const method = folder.id > 1000000 ? 'POST' : 'PUT';
         const url = method === 'POST' ? `${API_URL}/folders` : `${API_URL}/folders/${folder.id}`;
@@ -63,7 +63,8 @@ export const syncService = {
         if (res.ok) await db.folders.update(folder.id, { is_synced: 1 });
       }
 
-      const unsyncedTasks = await db.tasks.where('is_synced').equals(0).toArray() as LocalTask[];
+      // SỬ DỤNG .filter() ĐỂ GOM CẢ NHỮNG TASK CŨ CHƯA CÓ CỜ IS_SYNCED (BỊ UNDEFINED)
+      const unsyncedTasks = await db.tasks.filter(t => t.is_synced !== 1).toArray() as LocalTask[];
       for (const task of unsyncedTasks) {
         const method = task.id > 1000000 ? 'POST' : 'PUT';
         const url = method === 'POST' ? `${API_URL}/tasks` : `${API_URL}/tasks/${task.id}`;
@@ -88,7 +89,7 @@ export const syncService = {
       const folderRes = await fetch(`${API_URL}/folders`);
       if (folderRes.ok) {
         const serverFolders: LocalFolder[] = await folderRes.json();
-        const localUnsyncedFolders = await db.folders.where('is_synced').equals(0).toArray() as LocalFolder[];
+        const localUnsyncedFolders = await db.folders.filter(f => f.is_synced !== 1).toArray() as LocalFolder[];
         const unsyncedFolderIds = new Set(localUnsyncedFolders.map(f => f.id));
         
         for (const sf of serverFolders) {
@@ -101,7 +102,7 @@ export const syncService = {
       const taskRes = await fetch(`${API_URL}/tasks`);
       if (taskRes.ok) {
         const serverTasks: ServerTask[] = await taskRes.json();
-        const localUnsyncedTasks = await db.tasks.where('is_synced').equals(0).toArray() as LocalTask[];
+        const localUnsyncedTasks = await db.tasks.filter(t => t.is_synced !== 1).toArray() as LocalTask[];
         const unsyncedTaskIds = new Set(localUnsyncedTasks.map(t => t.id));
         
         const tasksToPut = serverTasks.map((st: ServerTask) => {
